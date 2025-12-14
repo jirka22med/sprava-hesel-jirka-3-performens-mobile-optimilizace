@@ -104,12 +104,19 @@
     box-sizing: border-box;
 }
 
-/* Globální zákaz označování textu */
+html { 
+    /* ✅ FÁZE 3: ZAJIŠTĚNÍ JEDNOTNÉHO POZADÍ I PRO KOŘENOVÝ ELEMENT */
+    background: linear-gradient(135deg, var(--background-dark) 0%, var(--background-light) 100%);
+    background-repeat: no-repeat; /* 🚀 NOVÉ: Zabránění opakování */
+    background-attachment: fixed; /* 🚀 NOVÉ: Opětovné nastavení fixed pro celou plochu */
+}
+
 html, body {
     user-select: none;
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
+    height: 100%; 
 }
 
 body { 
@@ -117,8 +124,12 @@ body {
     max-width: var(--container-max-width); 
     margin: 0px auto; 
     padding: 5px; 
-    background: linear-gradient(135deg, var(--background-dark) 0%, var(--background-light) 100%);
-    background-attachment: fixed;
+    
+    /* ⚠️ Odstranili jsme background: linear-gradient z body! */
+    /* Nyní se body spoléhá na pozadí z html, které se neopakuje */
+    
+    background-color: transparent; /* Zajištění průhlednosti pro body */
+    background-attachment: scroll; /* Scroll pro body pro mobily */
     color: var(--text-primary);
     min-height: 100vh;
     position: relative;
@@ -1203,4 +1214,5 @@ footer a:hover {
 
 /* ========================================== */
 /* 🎯 KONEC OPTIMALIZOVANÉHO CSS */
+
 /* ========================================== */
