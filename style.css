@@ -64,7 +64,7 @@
     /* 🔢 HODNOTY */
     --container-max-width: 1000px;
     --login-max-width: 450px;
-    --opacity-stars: 0.1;
+    --opacity-stars: 1.5;
     --opacity-overlay: 0.95;
     --opacity-button: 0.5;
 }
@@ -104,19 +104,21 @@
     box-sizing: border-box;
 }
 
-html { 
-    /* ✅ FÁZE 3: ZAJIŠTĚNÍ JEDNOTNÉHO POZADÍ I PRO KOŘENOVÝ ELEMENT */
-    background: linear-gradient(135deg, var(--background-dark) 0%, var(--background-light) 100%);
-    background-repeat: no-repeat; /* 🚀 NOVÉ: Zabránění opakování */
-    background-attachment: fixed; /* 🚀 NOVÉ: Opětovné nastavení fixed pro celou plochu */
-}
-
+/* Globální zákaz označování textu */
 html, body {
     user-select: none;
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
-    height: 100%; 
+    height: 100%; /* 🚀 ZMĚNA: Nastaveno pro fixní/rolující pozadí na celou plochu */
+}
+
+/* 🚀 ZMĚNA: Přesun globálního pozadí (tapety) na HTML pro fixní zobrazení i při dlouhém obsahu */
+html { 
+    background: linear-gradient(135deg, var(--background-dark) 0%, var(--background-light) 100%);
+    background-repeat: no-repeat; /* Zajišťuje, že se gradient neopakuje (eliminuje pruhy) */
+    background-attachment: scroll; /* Scroll, aby se pozadí roztáhlo s dlouhým obsahem */
+    background-size: 100% 600%; /* šířka je stejná 100% ale delka je 600% tím sem zajitil že tapeta je dlouhá tak akorát a krásně pokrívá celou stránku */ /* Roztáhnout pozadí na celou výšku obsahu (i dlouhého) */
 }
 
 body { 
@@ -125,24 +127,23 @@ body {
     margin: 0px auto; 
     padding: 5px; 
     
-    /* ⚠️ Odstranili jsme background: linear-gradient z body! */
-    /* Nyní se body spoléhá na pozadí z html, které se neopakuje */
+    /* 🚀 ZMĚNA: Původní gradient je nyní na HTML. Body musí být průhledné, aby tapeta z HTML prosvítala. */
+    background-color: transparent; 
+    background-attachment: scroll;
     
-    background-color: transparent; /* Zajištění průhlednosti pro body */
-    background-attachment: scroll; /* Scroll pro body pro mobily */
     color: var(--text-primary);
     min-height: 100vh;
     position: relative;
 }
 
 /* Animované hvězdy na pozadí */
-/*body::before {
+ body::before {
     content: '';
     position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
+    width: 200%;
+    height: 600%;
     background-image: 
         radial-gradient(2px 2px at 20px 30px, #fff, transparent),
         radial-gradient(2px 2px at 40px 70px, rgba(255,255,255,0.8), transparent),
@@ -159,7 +160,7 @@ body {
 @keyframes sparkle {
     0% { transform: translateY(0px); }
     100% { transform: translateY(-100px); }
-}*/
+} 
 
 /* ========================================== */
 /* 📦 KONTEJNERY */
@@ -442,7 +443,11 @@ tr:last-child td {
 }
 
 #passwordTableContainer {
-    position: relative;
+    /* 🚀 KLÍČOVÁ ZMĚNA: Povolení horizontálního posuvu */
+    overflow-x: auto;
+    
+    /* Omezení max-šířky, aby se neprotáhl přes kontejnery */
+    max-width: 100%; 
 }
 
 /* ========================================== */
@@ -629,7 +634,7 @@ footer a:hover {
     body::before {
         animation: none !important;
         opacity: 0 !important;
-        display: none;
+        display: none; /* 🚀 ZMĚNA: Přidáváme display: none pro jistotu */
     }
     
     /* Vypnutí button::before animace */
@@ -1214,5 +1219,4 @@ footer a:hover {
 
 /* ========================================== */
 /* 🎯 KONEC OPTIMALIZOVANÉHO CSS */
-
 /* ========================================== */
