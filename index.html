@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Šifrovaný správce hesel | Hvězdná flotila</title>
+    
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Přidání defer ke všem scriptům -->
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script defer src="script.js"></script>
+<script defer src="firebase-logic.js"></script>
+</head>
+<body>
+
+    <div id="fleetToast" class="toast-notification"></div>
+
+    <div id="loginForm" class="login-container container hidden">
+        <h1>🚀 Hvězdná flotila - Přístup</h1>
+        <p>Pro synchronizaci hesel mezi zařízeními se přihlaste přes Google.</p>
+        <button onclick="signInWithGoogle()" style="background-color: #DB4437; color: white;" title="Přihlásit se pomocí Google účtu">🌐 Přihlásit přes Google</button>
+    </div>
+
+    <div id="mainContent" class="container hidden">
+        <button class="logout-btn" onclick="confirmLogout()" title="Odhlásit se z aplikace">🔥 Odhlásit se</button>
+        <h1>🔐 Šifrovaný správce hesel</h1>
+        
+        <div class="form-group">
+            <label for="service" title="Název služby nebo webu">Služba:</label>
+            <input type="text" id="service" placeholder="např. Google, Facebook, GitHub..." title="Zadejte název služby">
+        </div>
+        
+        <div class="form-group">
+            <label for="username" title="Uživatelské jméno nebo e-mail">Uživatelské jméno:</label>
+            <input type="text" id="username" placeholder="např. admiral@starfleet.com" title="Zadejte uživatelské jméno">
+        </div>
+        
+        <div class="form-group">
+            <label for="password" title="Heslo pro danou službu">Heslo:</label>
+            <div class="password-input-group">
+                <input type="password" id="password" placeholder="Zadejte heslo..." title="Zadejte heslo">
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('password', this)" title="Přepnout viditelnost hesla">🔒 Zobrazit</button>
+            </div>
+        </div>
+        
+        <div class="button-group">
+    <button onclick="savePassword()" title="Uložit heslo do databáze">💾 ULOŽIT</button>
+    <button class="export-btn" onclick="exportToTxt()" title="Stáhnout všechna hesla jako TXT soubor">📤 EXPORT</button>
+    <button class="import-btn" onclick="triggerImport()" title="Nahrát hesla z TXT souboru">📥 IMPORT</button>
+    <input type="file" id="importFile" class="file-input" accept=".txt" onchange="importFromTxt(event)">
+</div>
+        
+        <div id="passwordTableContainer">
+            <table id="passwordTable">
+                <thead><tr><th>Služba</th><th>Uživatel</th><th>Heslo</th><th>Akce</th></tr></thead>
+                <tbody></tbody>
+            </table>
+            <div id="emptyState" class="empty-state hidden">
+                <div class="empty-state-icon">🛸</div>
+                <p><strong>Zatím žádná uložená hesla</strong></p>
+                <p>Začněte přidáním prvního hesla pomocí formuláře výše!</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="masterKeyInputModal" class="masterkey-modal-overlay hidden">
+        <div class="masterkey-modal-content">
+            <p id="masterKeyInputModalMessage" class="masterkey-modal-message"></p>
+            <div class="form-group">
+                <label for="masterKeyInputField">Master heslo:</label>
+                <div class="password-input-group">
+                    <input type="password" id="masterKeyInputField" placeholder="Zadejte master heslo" title="Master heslo pro šifrování všech dat">
+                    <button type="button" class="password-toggle" onclick="togglePasswordVisibility('masterKeyInputField', this)" title="Přepnout viditelnost master hesla">🔒 Zobrazit</button>
+                </div>
+            </div>
+            <div class="masterkey-modal-buttons">
+                <button class="confirm-ok" onclick="handleMasterKeyInput()" title="Potvrdit a pokračovat">✅ Potvrdit</button>
+            </div>
+        </div>
+    </div>
+
+     
+
+</body>
+</html>
