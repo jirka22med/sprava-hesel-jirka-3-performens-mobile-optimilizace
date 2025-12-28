@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Šifrovaný správce hesel | Hvězdná flotila</title>
+    <!-- 🚀 PWA MANIFEST -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#00ccff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+    <!-- Použij datum posledního commitu -->
+<link rel="stylesheet" href="style.css?v=20241215">
+
+    <!-- Přidání defer ke všem scriptům -->
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script defer src="script.js"></script>
+<script defer src="firebase-logic.js"></script>
+    <!-- 🚀 PWA SERVICE WORKER REGISTRACE -->
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js')
+      .then(registration => {
+        console.log('✅ Service Worker registrován:', registration.scope);
+      })
+      .catch(error => {
+        console.error('❌ Service Worker registrace selhala:', error);
+      });
+  });
+}
+</script>
+</head>
+<body>
+
+    <div id="fleetToast" class="toast-notification"></div>
+
+    <div id="loginForm" class="login-container container hidden">
+        <h1>🚀 Hvězdná flotila - Přístup</h1>
+        <p>Pro synchronizaci hesel mezi zařízeními se přihlaste přes Google.</p>
+        <button onclick="signInWithGoogle()" style="background-color: #DB4437; color: white;" title="Přihlásit se pomocí Google účtu">🌐 Přihlásit přes Google</button>
+    </div>
+
+    <div id="mainContent" class="container hidden">
+        <button class="logout-btn" onclick="confirmLogout()" title="Odhlásit se z aplikace">🔥 Odhlásit se</button>
+        
+    <!-- 🚀 INSTALAČNÍ TLAČÍTKO PŘIDEJ SEM! -->
+    <button id="installPwaBtn" class="install-pwa-btn hidden" onclick="installPWA()" title="Nainstalovat aplikaci na zařízení">
+        📲 INSTALOVAT
+    </button>
+        <h1>🔐 Šifrovaný správce hesel</h1>
+        
+        <div class="form-group">
+            <label for="service" title="Název služby nebo webu">Služba:</label>
+            <input type="text" id="service" placeholder="např. Google, Facebook, GitHub..." title="Zadejte název služby">
+        </div>
+        
+        <div class="form-group">
+            <label for="username" title="Uživatelské jméno nebo e-mail">Uživatelské jméno:</label>
+            <input type="text" id="username" placeholder="např. admiral@starfleet.com" title="Zadejte uživatelské jméno">
+        </div>
+        
+        <div class="form-group">
+            <label for="password" title="Heslo pro danou službu">Heslo:</label>
+            <div class="password-input-group">
+                <input type="password" id="password" placeholder="Zadejte heslo..." title="Zadejte heslo">
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('password', this)" title="Přepnout viditelnost hesla">🔒 Zobrazit</button>
+            </div>
+        </div>
+        
+        <div class="button-group">
+    <button onclick="savePassword()" title="Uložit heslo do databáze">💾 ULOŽIT</button>
+    
+    <!-- ✅ NOVÉ: Export dropdown menu -->
+    <div style="position: relative; display: inline-block;">
+        <button id="exportMenuBtn" class="export-btn" onclick="toggleExportMenu()" title="Vyberte formát exportu">
+            📤 EXPORT ▼
+        </button>
+        
+        <!-- Dropdown menu -->
+        <div id="exportDropdown" class="export-dropdown hidden">
+            <button onclick="exportToTxt()" title="Export jako čitelný TXT soubor">
+                📄 TXT
+            </button>
+            <button onclick="exportToCsv()" title="Export pro Excel (CSV)">
+                📊 CSV
+            </button>
+            <button onclick="exportToJson()" title="Export jako JSON (pro programátory)">
+                📦 JSON
+            </button>
+        </div>
+    </div>
+    
+    <button class="import-btn" onclick="triggerImport()" title="Nahrát hesla z TXT souboru">📥 IMPORT</button>
+    <input type="file" id="importFile" class="file-input" accept=".txt" onchange="importFromTxt(event)">
+</div>
+        
+        <div id="passwordTableContainer">
+            <table id="passwordTable">
+                <thead><tr><th>Služba</th><th>Uživatel</th><th>Heslo</th><th>Akce</th></tr></thead>
+                <tbody></tbody>
+            </table>
+            <div id="emptyState" class="empty-state hidden">
+                <div class="empty-state-icon">🛸</div>
+                <p><strong>Zatím žádná uložená hesla</strong></p>
+                <p>Začněte přidáním prvního hesla pomocí formuláře výše!</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🚀 ROZŠÍŘENÉ MODALY PRO MASTER KEY SYSTÉM 🚀 -->
+<!-- Nahraď původní masterKeyInputModal tímto kompletním blokem -->
+
+<!-- ========================================== -->
+<!-- 1️⃣ HLAVNÍ MASTER KEY MODAL (PŘIHLÁŠENÍ) -->
+<!-- ========================================== -->
+<div id="masterKeyInputModal" class="masterkey-modal-overlay hidden">
+    <div class="masterkey-modal-content">
+        <p id="masterKeyInputModalMessage" class="masterkey-modal-message"></p>
+        
+        <!-- Master heslo input -->
+        <div class="form-group">
+            <label for="masterKeyInputField">Master heslo:</label>
+            <div class="password-input-group">
+                <input type="password" id="masterKeyInputField" placeholder="Zadejte master heslo" title="Master heslo pro šifrování všech dat">
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('masterKeyInputField', this)" title="Přepnout viditelnost master hesla">🔒 Zobrazit</button>
+            </div>
+        </div>
+        
+        <!-- PIN input (zobrazí se po zadání master hesla) -->
+        <div class="form-group" id="pinInputGroup" style="display:none;">
+            <label for="pinInputField">PIN (4-6 číslic):</label>
+            <div class="password-input-group">
+                <input type="password" id="pinInputField" maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="Zadejte PIN" title="Bezpečnostní PIN">
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('pinInputField', this)" title="Přepnout viditelnost PIN">🔒 Zobrazit</button>
+            </div>
+        </div>
+        
+        <!-- Tlačítka -->
+        <div class="masterkey-modal-buttons">
+            <button class="confirm-ok" onclick="handleMasterKeyInput()" title="Potvrdit a pokračovat">✅ Potvrdit</button>
+            
+            <!-- Tlačítko "Změnit heslo" - zobrazí se po přihlášení -->
+            <button class="change-password-btn" onclick="showChangePasswordModal()" id="changeMasterPasswordBtn" style="display:none;" title="Změnit master heslo">
+                🔑 Změnit heslo
+            </button>
+            
+            <!-- Tlačítko "Zapomněl jsem heslo" -->
+            <button class="recovery-btn" onclick="showRecoveryModal()" id="recoveryBtn" title="Obnovit přístup pomocí backup key">
+                🆘 Zapomněl jsem heslo
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- 2️⃣ SETUP BACKUP & PIN (PRO NOVÉ UŽIVATELE) -->
+<!-- ========================================== -->
+<div id="setupBackupModal" class="masterkey-modal-overlay hidden">
+    <div class="masterkey-modal-content">
+        <h2 style="color: var(--accent-color); text-align: center; margin-bottom: 20px;">🛡️ Nastavení zálohy</h2>
+        
+        <div class="info-box warning" style="background: rgba(255, 152, 0, 0.1); border: 1px solid var(--warning-color); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <p style="margin: 0; color: var(--text-primary);">
+                <strong>⚠️ DŮLEŽITÉ:</strong> Vytvoř backup key a PIN pro případ ztráty master hesla.
+            </p>
+            <p style="margin: 10px 0 0 0; font-size: 0.9em; color: var(--text-secondary);">
+                Backup key ti umožní obnovit přístup k tvým heslům, pokud zapomeneš master heslo. Zapiš si ho na bezpečné místo!
+            </p>
+        </div>
+        
+        <!-- Backup Key -->
+        <div class="form-group">
+            <label for="setupBackupKey">Backup Key (12+ znaků):</label>
+            <div class="password-input-group">
+                <input type="password" id="setupBackupKey" placeholder="Vytvoř silný backup key" title="Záložní klíč pro recovery">
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('setupBackupKey', this)" title="Přepnout viditelnost">🔒 Zobrazit</button>
+            </div>
+            <small style="color: var(--text-secondary); font-size: 0.85em;">⚠️ Zapiš si ho na bezpečné místo (papír, trezor)!</small>
+        </div>
+        
+        <!-- Potvrzení Backup Key -->
+        <div class="form-group">
+            <label for="confirmSetupBackupKey">Potvrdit Backup Key:</label>
+            <div class="password-input-group">
+                <input type="password" id="confirmSetupBackupKey" placeholder="Zadej backup key znovu" title="Potvrzení backup key">
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('confirmSetupBackupKey', this)" title="Přepnout viditelnost">🔒 Zobrazit</button>
+            </div>
+        </div>
+        
+        <div style="height: 20px;"></div>
+        
+        <!-- PIN -->
+        <div class="form-group">
+            <label for="setupPin">PIN (4-6 číslic):</label>
+            <div class="password-input-group">
+                <input type="password" id="setupPin" maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="Např. 1234" title="Bezpečnostní PIN">
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('setupPin', this)" title="Přepnout viditelnost">🔒 Zobrazit</button>
+            </div>
+            <small style="color: var(--text-secondary); font-size: 0.85em;">Používá se při změně hesla a recovery</small>
+        </div>
+        
+        <!-- Potvrzení PIN -->
+        <div class="form-group">
+            <label for="confirmSetupPin">Potvrdit PIN:</label>
+            <div class="password-input-group">
+                <input type="password" id="confirmSetupPin" maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="Zadej PIN znovu" title="Potvrzení PIN">
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('confirmSetupPin', this)" title="Přepnout viditelnost">🔒 Zobrazit</button>
+            </div>
+        </div>
+        
+        <!-- Tlačítka -->
+        <div class="masterkey-modal-buttons">
+            <button class="confirm-ok" onclick="completeBackupSetup()" title="Dokončit nastavení zálohy">
+                ✅ Dokončit setup
+            </button>
+        </div>
+        
+        <div class="info-box info" style="background: rgba(33, 150, 243, 0.1); border: 1px solid #2196F3; padding: 10px; border-radius: 8px; margin-top: 15px;">
+            <small style="color: var(--text-secondary); font-size: 0.85em;">
+                💡 <strong>Tip:</strong> Backup key a PIN jsou jednorázově nastaveny. Změnit je můžeš pouze vytvořením nového účtu.
+            </small>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- 3️⃣ ZMĚNA MASTER HESLA -->
+<!-- ========================================== -->
+<div id="changePasswordModal" class="masterkey-modal-overlay hidden">
+    <div class="masterkey-modal-content">
+        <h2 style="color: var(--accent-color); text-align: center; margin-bottom: 20px;">🔑 Změna master hesla</h2>
+        
+        <div class="info-box info" style="background: rgba(33, 150, 243, 0.1); border: 1px solid #2196F3; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <p style="margin: 0; color: var(--text-primary);">
+                <strong>ℹ️ INFO:</strong> Změna master hesla znovu zašifruje všechna tvoje hesla.
+            </p>
+            <p style="margin: 10px 0 0 0; font-size: 0.9em; color: var(--text-secondary);">
+                Backup key zůstane stejný a slouží jako záloha pro případ zapomenutí nového hesla.
+            </p>
+        </div>
+        
+        <!-- Staré master heslo -->
+        <div class="form-group">
+            <label for="oldMasterPassword">Staré master heslo:</label>
+            <div class="password-input-group">
+                <input type="password" id="oldMasterPassword" placeholder="Zadej současné master heslo" title="Současné master heslo">
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('oldMasterPassword', this)" title="Přepnout viditelnost">🔒 Zobrazit</button>
+            </div>
+        </div>
+        
+        <!-- PIN pro ověření -->
+        <div class="form-group">
+            <label for="changePinVerify">PIN pro ověření:</label>
+            <div class="password-input-group">
+                <input type="password" id="changePinVerify" maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="Zadej svůj PIN" title="Bezpečnostní PIN">
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('changePinVerify', this)" title="Přepnout viditelnost">🔒 Zobrazit</button>
+            </div>
+        </div>
+        
+        <div style="height: 20px; border-top: 1px solid rgba(0, 204, 255, 0.2); margin: 20px 0;"></div>
+        
+        <!-- Nové master heslo -->
+        <div class="form-group">
+            <label for="newMasterPassword">Nové master heslo:</label>
+            <div class="password-input-group">
+                <input type="password" id="newMasterPassword" placeholder="Vytvoř nové silné heslo" title="Nové master heslo">
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('newMasterPassword', this)" title="Přepnout viditelnost">🔒 Zobrazit</button>
+            </div>
+            <small style="color: var(--text-secondary); font-size: 0.85em;">Minimálně 12 znaků, mix písmen, číslic a symbolů</small>
+        </div>
+        
+        <!-- Potvrzení nového hesla -->
+        <div class="form-group">
+            <label for="confirmNewMasterPassword">Potvrdit nové heslo:</label>
+            <div class="password-input-group">
+                <input type="password" id="confirmNewMasterPassword" placeholder="Zadej nové heslo znovu" title="Potvrzení nového hesla">
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('confirmNewMasterPassword', this)" title="Přepnout viditelnost">🔒 Zobrazit</button>
+            </div>
+        </div>
+        
+        <!-- Tlačítka -->
+        <div class="masterkey-modal-buttons">
+            <button class="confirm-ok" onclick="changeMasterPassword()" title="Potvrdit změnu hesla">
+                ✅ Změnit heslo
+            </button>
+            <button class="cancel-btn" onclick="closeChangePasswordModal()" title="Zrušit a vrátit se">
+                ❌ Zrušit
+            </button>
+        </div>
+        
+        <div class="info-box warning" style="background: rgba(255, 152, 0, 0.1); border: 1px solid var(--warning-color); padding: 10px; border-radius: 8px; margin-top: 15px;">
+            <small style="color: var(--text-secondary); font-size: 0.85em;">
+                ⚠️ <strong>Upozornění:</strong> Tato operace může trvat několik sekund. Nezavírej prohlížeč během změny!
+            </small>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- 4️⃣ RECOVERY MODAL (ZAPOMENUTÉ HESLO) -->
+<!-- ========================================== -->
+<div id="recoveryModal" class="masterkey-modal-overlay hidden">
+    <div class="masterkey-modal-content">
+        <h2 style="color: var(--danger-color); text-align: center; margin-bottom: 20px;">🆘 Obnova přístupu</h2>
+        
+        <div class="info-box warning" style="background: rgba(244, 67, 54, 0.1); border: 1px solid var(--danger-color); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <p style="margin: 0; color: var(--text-primary);">
+                <strong>⚠️ POZOR:</strong> Zapomněl jsi master heslo?
+            </p>
+            <p style="margin: 10px 0 0 0; font-size: 0.9em; color: var(--text-secondary);">
+                Můžeš obnovit přístup pomocí <strong>backup key</strong> a <strong>PIN</strong>. Po obnově budeš muset vytvořit nové master heslo.
+            </p>
+        </div>
+        
+        <!-- Backup Key -->
+        <div class="form-group">
+            <label for="recoveryBackupKey">Backup Key:</label>
+            <div class="password-input-group">
+                <input type="password" id="recoveryBackupKey" placeholder="Zadej svůj backup key" title="Záložní klíč pro recovery">
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('recoveryBackupKey', this)" title="Přepnout viditelnost">🔒 Zobrazit</button>
+            </div>
+            <small style="color: var(--text-secondary); font-size: 0.85em;">Ten, který jsi si zapsal při setupu</small>
+        </div>
+        
+        <!-- PIN -->
+        <div class="form-group">
+            <label for="recoveryPin">PIN:</label>
+            <div class="password-input-group">
+                <input type="password" id="recoveryPin" maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="Zadej svůj PIN" title="Bezpečnostní PIN">
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('recoveryPin', this)" title="Přepnout viditelnost">🔒 Zobrazit</button>
+            </div>
+        </div>
+        
+        <!-- Tlačítka -->
+        <div class="masterkey-modal-buttons">
+            <button class="confirm-ok" onclick="recoverAccess()" title="Obnovit přístup pomocí backup key">
+                ✅ Obnovit přístup
+            </button>
+            <button class="cancel-btn" onclick="closeRecoveryModal()" title="Zrušit a vrátit se">
+                ❌ Zrušit
+            </button>
+        </div>
+        
+        <div class="info-box danger" style="background: rgba(244, 67, 54, 0.1); border: 1px solid var(--danger-color); padding: 10px; border-radius: 8px; margin-top: 15px;">
+            <small style="color: var(--text-secondary); font-size: 0.85em;">
+                🔒 <strong>Nemáš backup key ani PIN?</strong> Bez nich bohužel nelze obnovit přístup k zašifrovaným heslům. Budeš muset vytvořit nový účet.
+            </small>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- 5️⃣ NOVÉ MASTER HESLO PO RECOVERY -->
+<!-- ========================================== -->
+<div id="newMasterPasswordModal" class="masterkey-modal-overlay hidden">
+    <div class="masterkey-modal-content">
+        <h2 style="color: var(--success-color); text-align: center; margin-bottom: 20px;">✅ Přístup obnoven!</h2>
+        
+        <div class="info-box success" style="background: rgba(76, 175, 80, 0.1); border: 1px solid var(--success-color); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <p style="margin: 0; color: var(--text-primary);">
+                <strong>🎉 Úspěch!</strong> Tvoje hesla byla úspěšně dešifrována.
+            </p>
+            <p style="margin: 10px 0 0 0; font-size: 0.9em; color: var(--text-secondary);">
+                Nyní vytvoř nové master heslo pro zabezpečení tvých dat.
+            </p>
+        </div>
+        
+        <!-- Nové master heslo -->
+        <div class="form-group">
+            <label for="recoveryNewMasterPassword">Nové master heslo:</label>
+            <div class="password-input-group">
+                <input type="password" id="recoveryNewMasterPassword" placeholder="Vytvoř nové silné heslo" title="Nové master heslo">
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('recoveryNewMasterPassword', this)" title="Přepnout viditelnost">🔒 Zobrazit</button>
+            </div>
+            <small style="color: var(--text-secondary); font-size: 0.85em;">Minimálně 12 znaků, mix písmen, číslic a symbolů</small>
+        </div>
+        
+        <!-- Potvrzení nového hesla -->
+        <div class="form-group">
+            <label for="recoveryConfirmNewMasterPassword">Potvrdit nové heslo:</label>
+            <div class="password-input-group">
+                <input type="password" id="recoveryConfirmNewMasterPassword" placeholder="Zadej nové heslo znovu" title="Potvrzení nového hesla">
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('recoveryConfirmNewMasterPassword', this)" title="Přepnout viditelnost">🔒 Zobrazit</button>
+            </div>
+        </div>
+        
+        <!-- Tlačítka -->
+        <div class="masterkey-modal-buttons">
+            <button class="confirm-ok" onclick="setNewMasterPasswordAfterRecovery()" title="Nastavit nové master heslo">
+                ✅ Nastavit nové heslo
+            </button>
+        </div>
+        
+        <div class="info-box warning" style="background: rgba(255, 152, 0, 0.1); border: 1px solid var(--warning-color); padding: 10px; border-radius: 8px; margin-top: 15px;">
+            <small style="color: var(--text-secondary); font-size: 0.85em;">
+                💡 <strong>Tip:</strong> Tentokrát si zapiš nové heslo na bezpečné místo!
+            </small>
+        </div>
+    </div>
+</div>
+
+     <footer id="appFooter" class="hidden">
+  &copy; <span id="currentYear"></span> Šifrovaný správce hesel | Více admirál jiřík & Admirál Claude.ai
+</footer>
+
+</body>
+</html>
