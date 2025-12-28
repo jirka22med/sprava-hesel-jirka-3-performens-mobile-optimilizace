@@ -1,7 +1,7 @@
 {
   "name": "Šifrovaný správce hesel | Hvězdná flotila",
   "short_name": "Správce hesel",
-  "description": "Bezpečný správce hesel s Firebase cloudem a end-to-end šifrováním. Projekt více admirála Jiříka a admirála Claude.AI",
+   "description": "Modulární audio systém inspirovaný Star Trekem - Architekt Jiřík",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0a0f1a",
@@ -48,4 +48,5 @@
     }
   ],
   "prefer_related_applications": false
+
 }
