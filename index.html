@@ -47,9 +47,7 @@ if ('serviceWorker' in navigator) {
         <button class="logout-btn" onclick="confirmLogout()" title="Odhlásit se z aplikace">🔥 Odhlásit se</button>
         
     <!-- 🚀 INSTALAČNÍ TLAČÍTKO PŘIDEJ SEM! -->
-    <button id="installPwaBtn" class="install-pwa-btn hidden" onclick="installPWA()" title="Nainstalovat aplikaci na zařízení">
-        📲 INSTALOVAT
-    </button>
+     
         <h1>🔐 Šifrovaný správce hesel</h1>
         
         <div class="form-group">
@@ -72,7 +70,9 @@ if ('serviceWorker' in navigator) {
         
         <div class="button-group">
     <button onclick="savePassword()" title="Uložit heslo do databáze">💾 ULOŽIT</button>
-    
+    <button id="installPwaBtn" class="install-pwa-btn hidden" onclick="installPWA()" title="Nainstalovat aplikaci na zařízení">
+        📲 INSTALOVAT
+    </button>
     <!-- ✅ NOVÉ: Export dropdown menu -->
     <div style="position: relative; display: inline-block;">
         <button id="exportMenuBtn" class="export-btn" onclick="toggleExportMenu()" title="Vyberte formát exportu">
@@ -407,4 +407,5 @@ if ('serviceWorker' in navigator) {
 </footer>
 
 </body>
+
 </html>
