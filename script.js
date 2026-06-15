@@ -1,1307 +1,409 @@
-// 🚀 HVĚZDNÁ FLOTILA - OPRAVENÁ SCRIPT.JS 🚀
-// Opraveno admirálem Claude.AI pro více admirála Jiříka
-// ✅ FIX #1: Synchronizace passwordsBackup při každé změně
-// ✅ FIX #2: Povinný backup setup pro existující uživatele
-// ✅ FIX #3: BackupKey v paměti pro auto-sync
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Šifrovaný správce hesel | Hvězdná flotila</title>
+    <!-- 🚀 PWA MANIFEST -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#00ccff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+    <!-- Použij datum posledního commitu -->
+<link rel="stylesheet" href="style.css?v=20260614">
 
-// ========================================
-// 📦 GLOBÁLNÍ PROMĚNNÉ A KONSTANTY
-// ========================================
+    <!-- Přidání defer ke všem scriptům -->
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script defer src="script.js"></script>
+<script defer src="firebase-logic.js"></script>
+<script defer src="generator-hesel.js"></script>    
+    <script defer src="moldarovi-editor-hesel.js"></script>
+    <!-- 🚀 PWA SERVICE WORKER REGISTRACE -->
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js')
+      .then(registration => {
+        console.log('✅ Service Worker registrován:', registration.scope);
+      })
+      .catch(error => {
+        console.error('❌ Service Worker registrace selhala:', error);
+      });
+  });
+}
+</script>
+</head>
+<body>
 
-const STORAGE_KEY = 'encryptedPasswords';
-const EMAIL_KEY = 'registeredEmail';
-const CACHE_TTL = 5000; // 5 sekund cache
+    <div id="fleetToast" class="toast-notification"></div>
 
-// Bezpečnější správa masterKey pomocí closure
-let masterKeyStore = (() => {
-    let _key = '';
-    return {
-        set: (key) => { _key = key; },
-        get: () => _key,
-        clear: () => { _key = ''; },
-        exists: () => _key.length > 0
-    };
-})();
+    <div id="loginForm" class="login-container container hidden">
+        <h1>🚀 Hvězdná flotila - Přístup</h1>
+        <p>Pro synchronizaci hesel mezi zařízeními se přihlaste přes Google.</p>
+        <button onclick="signInWithGoogle()" style="background-color: #DB4437; color: white;" title="Přihlásit se pomocí Google účtu">🌐 Přihlásit přes Google</button>
+    </div>
 
-// 🆕 NOVÉ: Backup Key Store (stejný pattern jako masterKey)
-let backupKeyStore = (() => {
-    let _key = '';
-    return {
-        set: (key) => { _key = key; },
-        get: () => _key,
-        clear: () => { _key = ''; },
-        exists: () => _key.length > 0
-    };
-})();
-
-let otpCode = '';
-let isNewMasterKeySetup = false;
-
-// Cache pro Firestore data
-let passwordsCache = {
-    data: null,
-    timestamp: null,
-    isValid() {
-        return this.data !== null && 
-               this.timestamp !== null && 
-               (Date.now() - this.timestamp) < CACHE_TTL;
-    },
-    set(data) {
-        this.data = data;
-        this.timestamp = Date.now();
-    },
-    clear() {
-        this.data = null;
-        this.timestamp = null;
-    }
-};
-
-// 🆕 NOVÉ PROMĚNNÉ PRO PIN & BACKUP
-let userPinHash = null; // SHA256 hash PINu
-let hasBackupSetup = false; // Zda uživatel má nastavenou zálohu
-
-// ========================================
-// 🔧 UTILITY FUNKCE
-// ========================================
-
-/**
- * Bezpečná toast notifikace místo alert()
- */
-function showFleetNotification(message, isError = false) {
-    const toast = document.getElementById("fleetToast");
+    <div id="mainContent" class="container hidden">
+        <button class="logout-btn" onclick="confirmLogout()" title="Odhlásit se z aplikace">🔥 Odhlásit se</button>
+        
+    <!-- 🚀 INSTALAČNÍ TLAČÍTKO PŘIDEJ SEM! -->
+     
+        <h1>🔐 Šifrovaný správce hesel</h1>
+        
+        <div class="form-group">
+            <label for="service" title="Název služby nebo webu">Služba:</label>
+            <input type="text" id="service" placeholder="např. Google, Facebook, GitHub..." title="Zadejte název služby">
+        </div>
+        
+        <div class="form-group">
+            <label for="username" title="Uživatelské jméno nebo e-mail">Uživatelské jméno:</label>
+            <input type="text" id="username" placeholder="např. admiral@starfleet.com" title="Zadejte uživatelské jméno">
+        </div>
+        
+        <div class="form-group">
+            <label for="password" title="Heslo pro danou službu">Heslo:</label>
+            <div class="password-input-group">
+                <input type="password" id="password" placeholder="Zadejte heslo..." title="Zadejte heslo">
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('password', this)" title="Přepnout viditelnost hesla">🔒 Zobrazit</button>
+                <button type="button" class="export-btn" onclick="openGeneratorModal()" title="Otevřít generátor hesel">
+    🎲 Generátor hesel
+</button>
+            </div>
+        </div>
+        
+        <div class="button-group">
+    <button onclick="savePassword()" title="Uložit heslo do databáze">💾 ULOŽIT</button>
+    <button id="installPwaBtn" class="install-pwa-btn hidden" onclick="installPWA()" title="Nainstalovat aplikaci na zařízení">
+        📲 INSTALOVAT
+    </button>
+    <!-- ✅ NOVÉ: Export dropdown menu -->
+    <div style="position: relative; display: inline-block;">
+        <button id="exportMenuBtn" class="export-btn" onclick="toggleExportMenu()" title="Vyberte formát exportu">
+            📤 EXPORT ▼
+        </button>
+        
+        <!-- Dropdown menu -->
+        <div id="exportDropdown" class="export-dropdown hidden">
+            <button onclick="exportToTxt()">📄 Export do TXT (Bezpečný Base64)</button>
+             
+        </div>
+    </div>
     
-    if (!toast) {
-        console.warn('Toast element not found, falling back to console');
-        console.log(message);
-        return;
-    }
-    
-    toast.textContent = message;
-    
-    if (isError) {
-        toast.style.borderColor = "var(--danger-color)";
-        toast.style.boxShadow = "0 0 15px rgba(244, 67, 54, 0.4)";
-    } else {
-        toast.style.borderColor = "var(--success-color)";
-        toast.style.boxShadow = "0 0 15px rgba(76, 175, 80, 0.4)";
-    }
-
-    toast.className = "toast-notification show";
-
-    setTimeout(() => { 
-        toast.className = toast.className.replace("show", ""); 
-    }, 6000);
-}
-
-/**
- * Debounce wrapper pro input události (budoucí použití)
- */
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
-
-// ========================================
-// 🔐 ŠIFROVÁNÍ A DEŠIFROVÁNÍ
-// ========================================
-
-/**
- * Šifrování dat s error handling
- */
-function encryptData(data) {
-    try {
-        if (!masterKeyStore.exists()) {
-            throw new Error("Master klíč není nastaven pro šifrování dat.");
-        }
-        return CryptoJS.AES.encrypt(JSON.stringify(data), masterKeyStore.get()).toString();
-    } catch (error) {
-        console.error("Chyba při šifrování:", error);
-        showFleetNotification('❌ Chyba při šifrování dat.', true);
-        throw error;
-    }
-}
-
-/**
- * Dešifrování dat s error handling
- */
-function decryptData(cipher) {
-    try {
-        if (!masterKeyStore.exists()) {
-            throw new Error("Master klíč není nastaven pro dešifrování dat.");
-        }
-        const bytes = CryptoJS.AES.decrypt(cipher, masterKeyStore.get());
-        const txt = bytes.toString(CryptoJS.enc.Utf8);
+    <button class="import-btn" onclick="triggerImport()" title="Nahrát hesla z TXT souboru">📥 IMPORT</button>
+    <input type="file" id="importFile" class="file-input" accept=".txt" onchange="importFromTxt(event)">
+</div>
         
-        if (!txt) {
-            throw new Error("Dešifrování selhalo - možná nesprávné heslo");
-        }
+        <div id="passwordTableContainer">
+            <table id="passwordTable">
+                <thead><tr><th>Služba</th><th>Uživatel</th><th>Heslo</th><th>Akce</th></tr></thead>
+                <tbody></tbody>
+            </table>
+            <div id="emptyState" class="empty-state hidden">
+                <div class="empty-state-icon">🛸</div>
+                <p><strong>Zatím žádná uložená hesla</strong></p>
+                <p>Začněte přidáním prvního hesla pomocí formuláře výše!</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🚀 ROZŠÍŘENÉ MODALY PRO MASTER KEY SYSTÉM 🚀 -->
+<!-- Nahraď původní masterKeyInputModal tímto kompletním blokem -->
+
+<!-- ========================================== -->
+<!-- 1️⃣ HLAVNÍ MASTER KEY MODAL (PŘIHLÁŠENÍ) -->
+<!-- ========================================== -->
+<div id="masterKeyInputModal" class="masterkey-modal-overlay hidden">
+    <div class="masterkey-modal-content">
+        <p id="masterKeyInputModalMessage" class="masterkey-modal-message"></p>
         
-        return JSON.parse(txt);
-    } catch (error) {
-        console.error("Chyba při dešifrování:", error);
-        showFleetNotification('❌ Chyba při dešifrování hesel. Zkontrolujte master heslo.', true);
-        return [];
-    }
-}
-
-// ========================================
-// 🆕 HELPER FUNKCE PRO PIN
-// ========================================
-
-/**
- * Hash PIN pomocí SHA256
- */
-function hashPin(pin) {
-    return CryptoJS.SHA256(pin).toString();
-}
-
-/**
- * Ověření PINu
- */
-function verifyPin(enteredPin) {
-    if (!userPinHash) {
-        console.error("PIN hash není načten");
-        return false;
-    }
-    const enteredHash = hashPin(enteredPin);
-    return enteredHash === userPinHash;
-}
-
-/**
- * Validace PINu (4-6 číslic)
- */
-function validatePin(pin) {
-    if (!pin || pin.length < 4 || pin.length > 6) {
-        showFleetNotification('⚠️ PIN musí mít 4-6 číslic!', true);
-        return false;
-    }
-    if (!/^\d+$/.test(pin)) {
-        showFleetNotification('⚠️ PIN může obsahovat pouze číslice!', true);
-        return false;
-    }
-    return true;
-}
-
-/**
- * Validace hesla (min 12 znaků)
- */
-function validatePassword(password, fieldName = "Heslo") {
-    if (!password || password.length < 12) {
-        showFleetNotification(`⚠️ ${fieldName} musí mít alespoň 12 znaků!`, true);
-        return false;
-    }
-    return true;
-}
-
-// ========================================
-// 🆕 SYNCHRONIZACE PASSWORDS BACKUP
-// ========================================
-
-/**
- * ✅ FIX #1: Aktualizace passwordsBackup při každé změně hesel
- * Volá se po každém savePassword(), deletePassword(), importFromTxt()
- */
-async function syncPasswordsBackup(passwords) {
-    try {
-        // Kontrola, zda máme BackupKey v paměti
-        if (!backupKeyStore.exists()) {
-            console.warn('⚠️ BackupKey není v paměti. Sync přeskočen.');
-            return false;
-        }
-
-        console.log('🔄 Synchronizuji passwordsBackup...');
-
-        // Zašifruj hesla BackupKey (pro recovery)
-        const passwordsBackup = CryptoJS.AES.encrypt(
-            JSON.stringify(passwords), 
-            backupKeyStore.get()
-        ).toString();
-
-        // Ulož do Firestore
-        await savePasswordsBackupToFirestore(passwordsBackup);
-
-        console.log('✅ PasswordsBackup synchronizován!');
-        return true;
-
-    } catch (error) {
-        console.error('❌ Chyba při synchronizaci passwordsBackup:', error);
-        // Neházíme chybu - tichý fail, aby to nezastavilo hlavní operaci
-        return false;
-    }
-}
-
-// ========================================
-// 📊 FIRESTORE OPERACE S CACHING
-// ========================================
-
-/**
- * Načtení hesel s cachingem
- */
-async function getPasswordsWithCache(forceRefresh = false) {
-    try {
-        if (!forceRefresh && passwordsCache.isValid()) {
-            console.log('📦 Používám cache pro hesla');
-            return passwordsCache.data;
-        }
-
-        console.log('🔄 Načítám hesla z Firestore');
-        const encryptedList = await loadPasswordsFromFirestore();
+        <!-- Master heslo input -->
+        <div class="form-group">
+            <label for="masterKeyInputField">Master heslo:</label>
+            <div class="password-input-group">
+                <input type="password" id="masterKeyInputField" placeholder="Zadejte master heslo" title="Master heslo pro šifrování všech dat">
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('masterKeyInputField', this)" title="Přepnout viditelnost master hesla">🔒 Zobrazit</button>
+            </div>
+        </div>
         
-        if (encryptedList) {
-            const decrypted = decryptData(encryptedList);
-            passwordsCache.set(decrypted);
-            return decrypted;
-        }
+        <!-- PIN input (zobrazí se po zadání master hesla) -->
+        <div class="form-group" id="pinInputGroup" style="display:none;">
+            <label for="pinInputField">PIN (4-6 číslic):</label>
+            <div class="password-input-group">
+                <input type="password" id="pinInputField" maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="Zadejte PIN" title="Bezpečnostní PIN">
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('pinInputField', this)" title="Přepnout viditelnost PIN">🔒 Zobrazit</button>
+            </div>
+        </div>
         
-        return [];
-    } catch (error) {
-        console.error("Chyba při načítání hesel:", error);
-        showFleetNotification('❌ Chyba při načítání hesel z cloudu.', true);
-        return [];
-    }
-}
-
-
-/**
- * 📋 NOVÉ: Zkopírování hesla do schránky
- */
-async function copyPassword(idx) {
-    try {
-        const list = await getPasswordsWithCache();
-        
-        if (list && list[idx]) {
-            const pwd = list[idx].password;
+        <!-- Tlačítka -->
+        <div class="masterkey-modal-buttons">
+            <button class="confirm-ok" onclick="handleMasterKeyInput()" title="Potvrdit a pokračovat">✅ Potvrdit</button>
             
-            // Zápis do schránky systému
-            await navigator.clipboard.writeText(pwd);
+            <!-- Tlačítko "Změnit heslo" - zobrazí se po přihlášení -->
+            <button class="change-password-btn" onclick="showChangePasswordModal()" id="changeMasterPasswordBtn" style="display:none;" title="Změnit master heslo">
+                🔑 Změnit heslo
+            </button>
             
-            // Oznámení pro uživatele
-            showFleetNotification('📋 Heslo zkopírováno do schránky!');
-        }
-    } catch (error) {
-        console.error("Chyba při kopírování:", error);
-        showFleetNotification('❌ Chyba při kopírování hesla. Zkontrolujte oprávnění prohlížeče.', true);
-    }
-}
+            <!-- Tlačítko "Zapomněl jsem heslo" -->
+            <button class="recovery-btn" onclick="showRecoveryModal()" id="recoveryBtn" title="Obnovit přístup pomocí backup key">
+                🆘 Zapomněl jsem heslo
+            </button>
+        </div>
+    </div>
+</div>
 
-
-/**
- * Uložení hesel a invalidace cache
- */
-async function savePasswordsWithCache(passwords) {
-    try {
-        const encrypted = encryptData(passwords);
-        await savePasswordsToFirestore(encrypted);
-        passwordsCache.set(passwords); // Aktualizuj cache
-        return true;
-    } catch (error) {
-        console.error("Chyba při ukládání hesel:", error);
-        showFleetNotification('❌ Chyba při ukládání hesel do cloudu.', true);
-        throw error;
-    }
-}
-
-// ========================================
-// 🎨 UI FUNKCE
-// ========================================
-
-/**
- * Přepnutí viditelnosti hesla
- */
-function togglePasswordVisibility(inputId, buttonElement) {
-    const input = document.getElementById(inputId);
-    if (!input) return;
-    
-    if (input.type === 'password') {
-        input.type = 'text';
-        buttonElement.innerHTML = '🔓 Skrýt';
-    } else {
-        input.type = 'password';
-        buttonElement.innerHTML = '🔒 Zobrazit';
-    }
-}
-
-/**
- * Vyčištění formuláře
- */
-function clearForm() {
-    ['service', 'username', 'password'].forEach(id => {
-        const element = document.getElementById(id);
-        if (element) element.value = '';
-    });
-}
-
-/**
- * Vyčištění tabulky
- */
-function clearTable() {
-    const tbody = document.querySelector('#passwordTable tbody');
-    if (tbody) {
-        tbody.innerHTML = '';
-    }
-}
-
-// ========================================
-// 🔐 AUTENTIZACE A MASTER KEY
-// ========================================
-
-/**
- * Zobrazení master key modalu
- */
-function showMasterKeyInputModal(isNewUser) {
-    isNewMasterKeySetup = isNewUser;
-    const modal = document.getElementById('masterKeyInputModal');
-    const messageElement = document.getElementById('masterKeyInputModalMessage');
-    const inputField = document.getElementById('masterKeyInputField');
-
-    if (!modal || !messageElement || !inputField) {
-        console.error('Modal elements not found');
-        return;
-    }
-
-    if (isNewUser) {
-        messageElement.innerHTML = '🚀 <strong>Vítejte na palubě, admirále!</strong><br>Nastavte si master heslo pro šifrování vašich dat:';
-        inputField.placeholder = 'Vytvořte silné master heslo';
-    } else {
-        messageElement.innerHTML = '🔐 <strong>Vítejte zpět!</strong><br>Zadejte své master heslo pro dešifrování dat:';
-        inputField.placeholder = 'Zadejte master heslo';
-    }
-    
-    inputField.value = '';
-    modal.classList.remove('hidden');
-}
-
-/**
- * ✅ FIX #2: AKTUALIZOVANÁ funkce pro zpracování master key inputu
- * Přidáno: Automatické přesměrování na setup backup & PIN pro existující uživatele
- */
-async function handleMasterKeyInput() {
-    const enteredKey = document.getElementById('masterKeyInputField')?.value;
-    
-    if (!enteredKey) {
-        showFleetNotification('⚠️ Zadejte master heslo!', true);
-        return;
-    }
-
-    if (isNewMasterKeySetup) {
-        // NOVÝ UŽIVATEL - nastavení master key
-        masterKeyStore.set(enteredKey);
-        const encryptedMasterKey = CryptoJS.AES.encrypt(masterKeyStore.get(), enteredKey).toString();
+<!-- ========================================== -->
+<!-- 2️⃣ SETUP BACKUP & PIN (PRO NOVÉ UŽIVATELE) -->
+<!-- ========================================== -->
+<div id="setupBackupModal" class="masterkey-modal-overlay hidden">
+    <div class="masterkey-modal-content">
+        <h2 style="color: var(--accent-color); text-align: center; margin-bottom: 20px;">🛡️ Nastavení zálohy</h2>
         
-        try {
-            await saveEncryptedMasterKeyToFirestore(encryptedMasterKey);
-            
-            // ⚡ NOVÉ: Po nastavení master hesla jdi na setup backup & PIN
-            showSetupBackupModal();
-            
-        } catch (error) {
-            console.error("Chyba při ukládání nového master klíče:", error);
-            showFleetNotification('❌ Chyba při ukládání master klíče do cloudu.', true);
-        }
-    } else {
-        // EXISTUJÍCÍ UŽIVATEL - ověření master key
-        try {
-            const encryptedMasterKeyFromFirestore = await loadEncryptedMasterKeyFromFirestore();
-            
-            if (!encryptedMasterKeyFromFirestore) {
-                showFleetNotification('❌ Chyba: Šifrovaný master klíč nebyl nalezen ve Firestore.', true);
-                return;
-            }
-            
-            const bytes = CryptoJS.AES.decrypt(encryptedMasterKeyFromFirestore, enteredKey);
-            const decryptedMasterKey = bytes.toString(CryptoJS.enc.Utf8);
-
-            if (decryptedMasterKey) {
-                masterKeyStore.set(decryptedMasterKey);
-                
-                // ⚡ NOVÉ: Načti PIN hash
-                userPinHash = await loadPinHashFromFirestore();
-                
-                // ✅ FIX #2: Kontrola, zda existuje backup setup
-                const encryptedBackupKey = await loadBackupKeyFromFirestore();
-                hasBackupSetup = !!encryptedBackupKey;
-                
-                // ✅ FIX #2: POKUD NEMÁ BACKUP SETUP → VYNUTIT SETUP!
-                if (!hasBackupSetup) {
-                    console.log('⚠️ Starý uživatel bez backup setupu. Přesměrovávám na setup...');
-                    
-                    showFleetNotification('⚠️ Pro zvýšení bezpečnosti je nutné nastavit Backup Key a PIN!', true);
-                    
-                    // Zavři master key modal a otevři setup backup modal
-                    document.getElementById('masterKeyInputModal').classList.add('hidden');
-                    showSetupBackupModal();
-                    
-                    return; // NEPOUŠTÍME DO APLIKACE!
-                }
-                
-                // ✅ POKUD MÁ BACKUP SETUP → Dešifruj BackupKey a ulož do paměti
-                try {
-                    const backupKeyBytes = CryptoJS.AES.decrypt(encryptedBackupKey, masterKeyStore.get());
-                    const backupKey = backupKeyBytes.toString(CryptoJS.enc.Utf8);
-                    
-                    if (backupKey) {
-                        backupKeyStore.set(backupKey);
-                        console.log('✅ BackupKey načten do paměti');
-                    } else {
-                        console.warn('⚠️ Nelze dešifrovat BackupKey');
-                    }
-                } catch (error) {
-                    console.error('❌ Chyba při dešifrování BackupKey:', error);
-                }
-                
-                // Vše OK → Pustit do aplikace
-                document.getElementById('masterKeyInputModal').classList.add('hidden');
-                document.getElementById('mainContent').classList.remove('hidden');
-                document.getElementById('appFooter').classList.remove('hidden');
-                
-                // Zobraz tlačítko "Změnit heslo" pokud má backup setup
-                if (hasBackupSetup) {
-                    const changeBtn = document.getElementById('changeMasterPasswordBtn');
-                    if (changeBtn) changeBtn.style.display = 'inline-block';
-                }
-                
-                showFleetNotification('✅ Přihlášení úspěšné! Hesla načtena z hvězdné flotily.');
-                await loadPasswords();
-            } else {
-                showFleetNotification('❌ Nesprávné master heslo. Zkuste to znovu.', true);
-            }
-        } catch (error) {
-            console.error("Chyba při dešifrování master klíče:", error);
-            showFleetNotification('❌ Chyba při dešifrování master klíče. Zkontrolujte heslo.', true);
-        }
-    }
-}
-
-/**
- * Přihlášení přes Google
- */
-async function signInWithGoogle() {
-    const loginForm = document.getElementById('loginForm');
-    if (loginForm) loginForm.classList.add('hidden');
-    
-    try {
-        await signInWithGoogleProvider();
-    } catch (error) {
-        console.error("Chyba při přihlášení přes Google:", error);
-        showFleetNotification('❌ Chyba při přihlášení přes Google. Zkuste to znovu.', true);
-        if (loginForm) loginForm.classList.remove('hidden');
-    }
-}
-
-/**
- * Callback po autentizaci uživatele
- */
-window.onUserAuthenticated = async (user) => {
-    if (user) {
-        console.log("Uživatel ověřen:", user.uid);
+        <div class="info-box warning" style="background: rgba(255, 152, 0, 0.1); border: 1px solid var(--warning-color); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <p style="margin: 0; color: var(--text-primary);">
+                <strong>⚠️ DŮLEŽITÉ:</strong> Vytvoř backup key a PIN pro případ ztráty master hesla.
+            </p>
+            <p style="margin: 10px 0 0 0; font-size: 0.9em; color: var(--text-secondary);">
+                Backup key ti umožní obnovit přístup k tvým heslům, pokud zapomeneš master heslo. Zapiš si ho na bezpečné místo!
+            </p>
+        </div>
         
-        const loginForm = document.getElementById('loginForm');
-        if (loginForm) loginForm.classList.add('hidden');
+        <!-- Backup Key -->
+        <div class="form-group">
+            <label for="setupBackupKey">Backup Key (12+ znaků):</label>
+            <div class="password-input-group">
+                <input type="password" id="setupBackupKey" placeholder="Vytvoř silný backup key" title="Záložní klíč pro recovery">
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('setupBackupKey', this)" title="Přepnout viditelnost">🔒 Zobrazit</button>
+            </div>
+            <small style="color: var(--text-secondary); font-size: 0.85em;">⚠️ Zapiš si ho na bezpečné místo (papír, trezor)!</small>
+        </div>
         
-        const footer = document.getElementById('appFooter');
-        if (footer) footer.classList.add('hidden'); 
-       
-        try {
-            const encryptedMasterKeyFromFirestore = await loadEncryptedMasterKeyFromFirestore();
-            
-            if (encryptedMasterKeyFromFirestore) {
-                showMasterKeyInputModal(false);
-            } else {
-                showMasterKeyInputModal(true);
-            }
-        } catch (error) {
-            console.error("Chyba při zpracování autentizace:", error);
-            showFleetNotification('❌ Chyba při načítání uživatelských dat. Zkuste se přihlásit znovu.', true);
-            logout();
-        }
-    } else {
-        console.log("Uživatel odhlášen.");
-        logout();
-    }
-};
-
-/**
- * Potvrzení odhlášení
- */
-function confirmLogout() {
-    if (confirm('🚀 Opravdu chcete ukončit warpový skok a odhlásit se?')) {
-        logout();
-    }
-}
-
-/**
- * Odhlášení uživatele
- */
-function logout() {
-    masterKeyStore.clear();
-    backupKeyStore.clear(); // ✅ Vyčisti BackupKey z paměti
-    passwordsCache.clear();
-    clearTable();
-    
-    if (typeof auth !== 'undefined' && auth) {
-        auth.signOut()
-            .then(() => {
-                console.log("Uživatel odhlášen z Firebase.");
-                showFleetNotification('👋 Odhlášení úspěšné. Můžete se vrátit na palubu kdykoliv!');
-            })
-            .catch((error) => {
-                console.error("Chyba při odhlašování z Firebase:", error);
-            });
-    }
-    
-    const mainContent = document.getElementById('mainContent');
-    const loginForm = document.getElementById('loginForm');
-    const footer = document.getElementById('appFooter');
-    
-    if (mainContent) mainContent.classList.add('hidden');
-    if (footer) footer.classList.add('hidden');
-    if (loginForm) loginForm.classList.remove('hidden');
-}
-
-// ========================================
-// 🆕 SETUP BACKUP & PIN (NOVÝ UŽIVATEL)
-// ========================================
-
-/**
- * Zobrazení setup backup modalu po vytvoření master hesla
- */
-function showSetupBackupModal() {
-    document.getElementById('masterKeyInputModal').classList.add('hidden');
-    document.getElementById('setupBackupModal').classList.remove('hidden');
-}
-
-/**
- * ✅ AKTUALIZOVÁNO: Dokončení setupu backup key a PIN
- * Přidáno: Uložení BackupKey do paměti pro automatickou synchronizaci
- */
-async function completeBackupSetup() {
-    const backupKey = document.getElementById('setupBackupKey')?.value;
-    const confirmBackupKey = document.getElementById('confirmSetupBackupKey')?.value;
-    const pin = document.getElementById('setupPin')?.value;
-    const confirmPin = document.getElementById('confirmSetupPin')?.value;
-
-    // Validace backup key
-    if (!validatePassword(backupKey, "Backup key")) return;
-    if (backupKey !== confirmBackupKey) {
-        showFleetNotification('⚠️ Backup keys se neshodují!', true);
-        return;
-    }
-
-    // Validace PIN
-    if (!validatePin(pin)) return;
-    if (pin !== confirmPin) {
-        showFleetNotification('⚠️ PINy se neshodují!', true);
-        return;
-    }
-
-    try {
-        // 1. Zašifruj backup key pomocí master hesla
-        const encryptedBackupKey = CryptoJS.AES.encrypt(backupKey, masterKeyStore.get()).toString();
+        <!-- Potvrzení Backup Key -->
+        <div class="form-group">
+            <label for="confirmSetupBackupKey">Potvrdit Backup Key:</label>
+            <div class="password-input-group">
+                <input type="password" id="confirmSetupBackupKey" placeholder="Zadej backup key znovu" title="Potvrzení backup key">
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('confirmSetupBackupKey', this)" title="Přepnout viditelnost">🔒 Zobrazit</button>
+            </div>
+        </div>
         
-        // 2. Vytvoř PIN hash
-        const pinHash = hashPin(pin);
+        <div style="height: 20px;"></div>
         
-        // 3. Načti aktuální hesla
-        const currentPasswords = await getPasswordsWithCache(true);
+        <!-- PIN -->
+        <div class="form-group">
+            <label for="setupPin">PIN (4-6 číslic):</label>
+            <div class="password-input-group">
+                <input type="password" id="setupPin" maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="Např. 1234" title="Bezpečnostní PIN">
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('setupPin', this)" title="Přepnout viditelnost">🔒 Zobrazit</button>
+            </div>
+            <small style="color: var(--text-secondary); font-size: 0.85em;">Používá se při změně hesla a recovery</small>
+        </div>
         
-        // 4. Zašifruj hesla TAKÉ pomocí backup key (pro recovery)
-        const passwordsBackup = CryptoJS.AES.encrypt(JSON.stringify(currentPasswords), backupKey).toString();
+        <!-- Potvrzení PIN -->
+        <div class="form-group">
+            <label for="confirmSetupPin">Potvrdit PIN:</label>
+            <div class="password-input-group">
+                <input type="password" id="confirmSetupPin" maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="Zadej PIN znovu" title="Potvrzení PIN">
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('confirmSetupPin', this)" title="Přepnout viditelnost">🔒 Zobrazit</button>
+            </div>
+        </div>
         
-        // 5. Ulož vše do Firestore
-        await saveBackupKeyToFirestore(encryptedBackupKey);
-        await savePinHashToFirestore(pinHash);
-        await savePasswordsBackupToFirestore(passwordsBackup);
+        <!-- Tlačítka -->
+        <div class="masterkey-modal-buttons">
+            <button class="confirm-ok" onclick="completeBackupSetup()" title="Dokončit nastavení zálohy">
+                ✅ Dokončit setup
+            </button>
+        </div>
         
-        // 6. ✅ NOVÉ: Ulož BackupKey do paměti (pro automatickou sync)
-        backupKeyStore.set(backupKey);
-        userPinHash = pinHash;
-        hasBackupSetup = true;
+        <div class="info-box info" style="background: rgba(33, 150, 243, 0.1); border: 1px solid #2196F3; padding: 10px; border-radius: 8px; margin-top: 15px;">
+            <small style="color: var(--text-secondary); font-size: 0.85em;">
+                💡 <strong>Tip:</strong> Backup key a PIN jsou jednorázově nastaveny. Změnit je můžeš pouze vytvořením nového účtu.
+            </small>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- 3️⃣ ZMĚNA MASTER HESLA -->
+<!-- ========================================== -->
+<div id="changePasswordModal" class="masterkey-modal-overlay hidden">
+    <div class="masterkey-modal-content">
+        <h2 style="color: var(--accent-color); text-align: center; margin-bottom: 20px;">🔑 Změna master hesla</h2>
         
-        console.log('✅ BackupKey uložen do paměti pro auto-sync');
+        <div class="info-box info" style="background: rgba(33, 150, 243, 0.1); border: 1px solid #2196F3; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <p style="margin: 0; color: var(--text-primary);">
+                <strong>ℹ️ INFO:</strong> Změna master hesla znovu zašifruje všechna tvoje hesla.
+            </p>
+            <p style="margin: 10px 0 0 0; font-size: 0.9em; color: var(--text-secondary);">
+                Backup key zůstane stejný a slouží jako záloha pro případ zapomenutí nového hesla.
+            </p>
+        </div>
         
-        // 7. Zavři modal a zobraz hlavní obsah
-        document.getElementById('setupBackupModal').classList.add('hidden');
-        document.getElementById('mainContent').classList.remove('hidden');
-        document.getElementById('appFooter').classList.remove('hidden');
+        <!-- Staré master heslo -->
+        <div class="form-group">
+            <label for="oldMasterPassword">Staré master heslo:</label>
+            <div class="password-input-group">
+                <input type="password" id="oldMasterPassword" placeholder="Zadej současné master heslo" title="Současné master heslo">
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('oldMasterPassword', this)" title="Přepnout viditelnost">🔒 Zobrazit</button>
+            </div>
+        </div>
         
-        showFleetNotification('✅ Backup key a PIN úspěšně nastaveny! Tvoje data jsou chráněna.');
+        <!-- PIN pro ověření -->
+        <div class="form-group">
+            <label for="changePinVerify">PIN pro ověření:</label>
+            <div class="password-input-group">
+                <input type="password" id="changePinVerify" maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="Zadej svůj PIN" title="Bezpečnostní PIN">
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('changePinVerify', this)" title="Přepnout viditelnost">🔒 Zobrazit</button>
+            </div>
+        </div>
         
-        // 8. Vyčisti inputy
-        document.getElementById('setupBackupKey').value = '';
-        document.getElementById('confirmSetupBackupKey').value = '';
-        document.getElementById('setupPin').value = '';
-        document.getElementById('confirmSetupPin').value = '';
+        <div style="height: 20px; border-top: 1px solid rgba(0, 204, 255, 0.2); margin: 20px 0;"></div>
         
-        await loadPasswords();
+        <!-- Nové master heslo -->
+        <div class="form-group">
+            <label for="newMasterPassword">Nové master heslo:</label>
+            <div class="password-input-group">
+                <input type="password" id="newMasterPassword" placeholder="Vytvoř nové silné heslo" title="Nové master heslo">
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('newMasterPassword', this)" title="Přepnout viditelnost">🔒 Zobrazit</button>
+            </div>
+            <small style="color: var(--text-secondary); font-size: 0.85em;">Minimálně 12 znaků, mix písmen, číslic a symbolů</small>
+        </div>
         
-    } catch (error) {
-        console.error("Chyba při setupu backup:", error);
-        showFleetNotification('❌ Chyba při nastavení zálohy. Zkuste to znovu.', true);
-    }
-}
-
-// ========================================
-// 🆕 ZMĚNA MASTER HESLA
-// ========================================
-
-/**
- * Zobrazení modalu pro změnu master hesla
- */
-function showChangePasswordModal() {
-    document.getElementById('changePasswordModal').classList.remove('hidden');
-}
-
-/**
- * Zavření modalu pro změnu hesla
- */
-function closeChangePasswordModal() {
-    document.getElementById('changePasswordModal').classList.add('hidden');
-    // Vyčisti inputy
-    document.getElementById('oldMasterPassword').value = '';
-    document.getElementById('changePinVerify').value = '';
-    document.getElementById('newMasterPassword').value = '';
-    document.getElementById('confirmNewMasterPassword').value = '';
-}
-
-/**
- * Změna master hesla
- */
-async function changeMasterPassword() {
-    const oldPassword = document.getElementById('oldMasterPassword')?.value;
-    const pinVerify = document.getElementById('changePinVerify')?.value;
-    const newPassword = document.getElementById('newMasterPassword')?.value;
-    const confirmPassword = document.getElementById('confirmNewMasterPassword')?.value;
-
-    // Validace
-    if (!oldPassword || !pinVerify || !newPassword || !confirmPassword) {
-        showFleetNotification('⚠️ Vyplň všechna pole!', true);
-        return;
-    }
-
-    // Ověř staré master heslo
-    if (oldPassword !== masterKeyStore.get()) {
-        showFleetNotification('❌ Staré master heslo je nesprávné!', true);
-        return;
-    }
-
-    // Ověř PIN
-    if (!validatePin(pinVerify)) return;
-    if (!verifyPin(pinVerify)) {
-        showFleetNotification('❌ Nesprávný PIN!', true);
-        return;
-    }
-
-    // Validace nového hesla
-    if (!validatePassword(newPassword, "Nové heslo")) return;
-    if (newPassword !== confirmPassword) {
-        showFleetNotification('⚠️ Nová hesla se neshodují!', true);
-        return;
-    }
-
-    // Kontrola, že nové heslo je jiné než staré
-    if (oldPassword === newPassword) {
-        showFleetNotification('⚠️ Nové heslo musí být jiné než staré!', true);
-        return;
-    }
-
-    try {
-        showFleetNotification('🔄 Měním master heslo... Může to chvíli trvat.');
-
-        // 1. Načti a dešifruj hesla starým master keyem
-        const encryptedList = await loadPasswordsFromFirestore();
-        if (!encryptedList) {
-            throw new Error("Žádná hesla k dešifrování");
-        }
+        <!-- Potvrzení nového hesla -->
+        <div class="form-group">
+            <label for="confirmNewMasterPassword">Potvrdit nové heslo:</label>
+            <div class="password-input-group">
+                <input type="password" id="confirmNewMasterPassword" placeholder="Zadej nové heslo znovu" title="Potvrzení nového hesla">
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('confirmNewMasterPassword', this)" title="Přepnout viditelnost">🔒 Zobrazit</button>
+            </div>
+        </div>
         
-        const decryptedPasswords = decryptData(encryptedList);
-
-        // 2. Zašifruj hesla NOVÝM master keyem
-        const newEncryptedPasswords = CryptoJS.AES.encrypt(
-            JSON.stringify(decryptedPasswords), 
-            newPassword
-        ).toString();
-
-        // 3. Zašifruj nový master key (sám sebou)
-        const newEncryptedMasterKey = CryptoJS.AES.encrypt(newPassword, newPassword).toString();
-
-        // 4. ✅ Přešifruj BackupKey pomocí NOVÉHO master hesla
-        const currentBackupKey = backupKeyStore.get();
-        const newEncryptedBackupKey = CryptoJS.AES.encrypt(currentBackupKey, newPassword).toString();
-
-        // 5. Ulož do Firestore
-        await savePasswordsToFirestore(newEncryptedPasswords);
-        await saveEncryptedMasterKeyToFirestore(newEncryptedMasterKey);
-        await saveBackupKeyToFirestore(newEncryptedBackupKey);
+        <!-- Tlačítka -->
+        <div class="masterkey-modal-buttons">
+            <button class="confirm-ok" onclick="changeMasterPassword()" title="Potvrdit změnu hesla">
+                ✅ Změnit heslo
+            </button>
+            <button class="cancel-btn" onclick="closeChangePasswordModal()" title="Zrušit a vrátit se">
+                ❌ Zrušit
+            </button>
+        </div>
         
-        // 6. ✅ NEPŘEŠIFROVÁVAT passwordsBackup - zůstává stejný (zašifrovaný BackupKey)
-        // Není potřeba, protože passwordsBackup je šifrovaný BackupKey, který se nemění
+        <div class="info-box warning" style="background: rgba(255, 152, 0, 0.1); border: 1px solid var(--warning-color); padding: 10px; border-radius: 8px; margin-top: 15px;">
+            <small style="color: var(--text-secondary); font-size: 0.85em;">
+                ⚠️ <strong>Upozornění:</strong> Tato operace může trvat několik sekund. Nezavírej prohlížeč během změny!
+            </small>
+        </div>
+    </div>
+</div>
 
-        // 7. Aktualizuj master key v paměti
-        masterKeyStore.set(newPassword);
-
-        // 8. Invaliduj cache
-        passwordsCache.clear();
-
-        // 9. Zavři modal
-        closeChangePasswordModal();
-
-        showFleetNotification('✅ Master heslo úspěšně změněno! Všechna hesla byla znovu zašifrována.');
-
-        // 10. Reload hesel
-        await loadPasswords();
-
-    } catch (error) {
-        console.error("Chyba při změně master hesla:", error);
-        showFleetNotification('❌ Chyba při změně hesla. Zkuste to znovu.', true);
-    }
-}
-
-// ========================================
-// 🆕 RECOVERY (ZAPOMENUTÉ HESLO)
-// ========================================
-
-/**
- * Zobrazení recovery modalu
- */
-function showRecoveryModal() {
-    document.getElementById('masterKeyInputModal').classList.add('hidden');
-    document.getElementById('recoveryModal').classList.remove('hidden');
-}
-
-/**
- * Zavření recovery modalu
- */
-function closeRecoveryModal() {
-    document.getElementById('recoveryModal').classList.add('hidden');
-    document.getElementById('masterKeyInputModal').classList.remove('hidden');
-    // Vyčisti inputy
-    document.getElementById('recoveryBackupKey').value = '';
-    document.getElementById('recoveryPin').value = '';
-}
-
-/**
- * Obnova přístupu pomocí backup key a PIN
- */
-async function recoverAccess() {
-    const backupKey = document.getElementById('recoveryBackupKey')?.value;
-    const pin = document.getElementById('recoveryPin')?.value;
-
-    // Validace
-    if (!backupKey || !pin) {
-        showFleetNotification('⚠️ Vyplň backup key i PIN!', true);
-        return;
-    }
-
-    if (!validatePin(pin)) return;
-
-    try {
-        showFleetNotification('🔄 Ověřuji backup key a PIN...');
-
-        // 1. Načti PIN hash z Firestore
-        const storedPinHash = await loadPinHashFromFirestore();
-        if (!storedPinHash) {
-            showFleetNotification('❌ PIN hash nenalezen. Nemáš nastavenou zálohu.', true);
-            return;
-        }
-
-        // 2. Ověř PIN
-        const enteredPinHash = hashPin(pin);
-        if (enteredPinHash !== storedPinHash) {
-            showFleetNotification('❌ Nesprávný PIN!', true);
-            return;
-        }
-
-        // 3. Načti passwordsBackup z Firestore
-        const passwordsBackup = await loadPasswordsBackupFromFirestore();
-        if (!passwordsBackup) {
-            showFleetNotification('❌ Záložní hesla nenalezena.', true);
-            return;
-        }
-
-        // 4. Pokus se dešifrovat pomocí backup key
-        let decryptedPasswords;
-        try {
-            const bytes = CryptoJS.AES.decrypt(passwordsBackup, backupKey);
-            const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
-            
-            if (!decryptedText) {
-                throw new Error("Dešifrování selhalo");
-            }
-            
-            decryptedPasswords = JSON.parse(decryptedText);
-        } catch (error) {
-            showFleetNotification('❌ Nesprávný backup key! Dešifrování selhalo.', true);
-            return;
-        }
-
-        // 5. Úspěch! Ulož dešifrovaná hesla dočasně
-        window._recoveredPasswords = decryptedPasswords;
-        window._recoveredBackupKey = backupKey; // ✅ Ulož i BackupKey pro pozdější použití
-        userPinHash = storedPinHash; // Ulož PIN hash do paměti
-
-        // 6. Zavři recovery modal a zobraz modal pro nové master heslo
-        document.getElementById('recoveryModal').classList.add('hidden');
-        document.getElementById('newMasterPasswordModal').classList.remove('hidden');
-
-        showFleetNotification('✅ Přístup obnoven! Nyní vytvoř nové master heslo.');
-
-    } catch (error) {
-        console.error("Chyba při recovery:", error);
-        showFleetNotification('❌ Chyba při obnově přístupu. Zkontroluj backup key a PIN.', true);
-    }
-}
-
-/**
- * ✅ AKTUALIZOVÁNO: Nastavení nového master hesla po recovery
- * Přidáno: Uložení BackupKey do paměti pro automatickou synchronizaci
- */
-async function setNewMasterPasswordAfterRecovery() {
-    const newPassword = document.getElementById('recoveryNewMasterPassword')?.value;
-    const confirmPassword = document.getElementById('recoveryConfirmNewMasterPassword')?.value;
-
-    // Validace
-    if (!validatePassword(newPassword, "Nové heslo")) return;
-    if (newPassword !== confirmPassword) {
-        showFleetNotification('⚠️ Hesla se neshodují!', true);
-        return;
-    }
-
-    // Kontrola, že máme dešifrovaná hesla z recovery
-    if (!window._recoveredPasswords) {
-        showFleetNotification('❌ Chyba: Žádná obnovená hesla k uložení.', true);
-        return;
-    }
-
-    try {
-        showFleetNotification('🔄 Nastavuji nové master heslo...');
-
-        const recoveredPasswords = window._recoveredPasswords;
-        const recoveredBackupKey = window._recoveredBackupKey; // ✅ BackupKey z recovery
-
-        // 1. Zašifruj hesla NOVÝM master keyem
-        const newEncryptedPasswords = CryptoJS.AES.encrypt(
-            JSON.stringify(recoveredPasswords), 
-            newPassword
-        ).toString();
-
-        // 2. Zašifruj nový master key (sám sebou)
-        const newEncryptedMasterKey = CryptoJS.AES.encrypt(newPassword, newPassword).toString();
-
-        // 3. ✅ Přešifruj EXISTUJÍCÍ BackupKey (ne generovat nový!)
-        const newEncryptedBackupKey = CryptoJS.AES.encrypt(recoveredBackupKey, newPassword).toString();
+<!-- ========================================== -->
+<!-- 4️⃣ RECOVERY MODAL (ZAPOMENUTÉ HESLO) -->
+<!-- ========================================== -->
+<div id="recoveryModal" class="masterkey-modal-overlay hidden">
+    <div class="masterkey-modal-content">
+        <h2 style="color: var(--danger-color); text-align: center; margin-bottom: 20px;">🆘 Obnova přístupu</h2>
         
-        // 4. ✅ Přešifruj passwordsBackup pomocí EXISTUJÍCÍHO BackupKey
-        const newPasswordsBackup = CryptoJS.AES.encrypt(
-            JSON.stringify(recoveredPasswords), 
-            recoveredBackupKey
-        ).toString();
-
-        // 5. Ulož vše do Firestore
-        await savePasswordsToFirestore(newEncryptedPasswords);
-        await saveEncryptedMasterKeyToFirestore(newEncryptedMasterKey);
-        await saveBackupKeyToFirestore(newEncryptedBackupKey);
-        await savePasswordsBackupToFirestore(newPasswordsBackup);
-
-        // 6. Nastav nový master key v paměti
-        masterKeyStore.set(newPassword);
+        <div class="info-box warning" style="background: rgba(244, 67, 54, 0.1); border: 1px solid var(--danger-color); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <p style="margin: 0; color: var(--text-primary);">
+                <strong>⚠️ POZOR:</strong> Zapomněl jsi master heslo?
+            </p>
+            <p style="margin: 10px 0 0 0; font-size: 0.9em; color: var(--text-secondary);">
+                Můžeš obnovit přístup pomocí <strong>backup key</strong> a <strong>PIN</strong>. Po obnově budeš muset vytvořit nové master heslo.
+            </p>
+        </div>
         
-        // 7. ✅ NOVÉ: Ulož BackupKey do paměti (pro automatickou sync)
-        backupKeyStore.set(recoveredBackupKey);
-        hasBackupSetup = true;
-
-        // 8. Vyčisti dočasná data
-        delete window._recoveredPasswords;
-        delete window._recoveredBackupKey;
-
-        // 9. Invaliduj cache
-        passwordsCache.clear();
-
-        // 10. Zavři modal a zobraz hlavní obsah
-        document.getElementById('newMasterPasswordModal').classList.add('hidden');
-        document.getElementById('mainContent').classList.remove('hidden');
-        document.getElementById('appFooter').classList.remove('hidden');
-
-        showFleetNotification('✅ Nové master heslo nastaveno! Tvoje hesla byla znovu zašifrována.');
-
-        // 11. Reload hesel
-        await loadPasswords();
-
-    } catch (error) {
-        console.error("Chyba při nastavení nového master hesla:", error);
-        showFleetNotification('❌ Chyba při nastavení nového hesla. Zkuste to znovu.', true);
-    }
-}
-
-// ========================================
-// 💾 SPRÁVA HESEL
-// ========================================
-
-/**
- * ✅ FIX #1: Uložení hesla - AKTUALIZOVÁNO s auto-sync
- */
-async function savePassword() {
-    const service = document.getElementById('service')?.value;
-    const user = document.getElementById('username')?.value;
-    const pwd = document.getElementById('password')?.value;
-    
-    if (!service || !user || !pwd) {
-        showFleetNotification('⚠️ Vyplňte všechna pole před warpovým skokem!', true);
-        return;
-    }
-    
-    if (!masterKeyStore.exists()) {
-        showFleetNotification('❌ Master heslo není nastaveno. Přihlaste se prosím.', true);
-        return;
-    }
-
-    try {
-        const list = await getPasswordsWithCache();
-        list.push({ service, username: user, password: pwd });
+        <!-- Backup Key -->
+        <div class="form-group">
+            <label for="recoveryBackupKey">Backup Key:</label>
+            <div class="password-input-group">
+                <input type="password" id="recoveryBackupKey" placeholder="Zadej svůj backup key" title="Záložní klíč pro recovery">
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('recoveryBackupKey', this)" title="Přepnout viditelnost">🔒 Zobrazit</button>
+            </div>
+            <small style="color: var(--text-secondary); font-size: 0.85em;">Ten, který jsi si zapsal při setupu</small>
+        </div>
         
-        await savePasswordsWithCache(list);
+        <!-- PIN -->
+        <div class="form-group">
+            <label for="recoveryPin">PIN:</label>
+            <div class="password-input-group">
+                <input type="password" id="recoveryPin" maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="Zadej svůj PIN" title="Bezpečnostní PIN">
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('recoveryPin', this)" title="Přepnout viditelnost">🔒 Zobrazit</button>
+            </div>
+        </div>
         
-        // ✅ FIX #1: Automaticky synchronizuj passwordsBackup
-        await syncPasswordsBackup(list);
+        <!-- Tlačítka -->
+        <div class="masterkey-modal-buttons">
+            <button class="confirm-ok" onclick="recoverAccess()" title="Obnovit přístup pomocí backup key">
+                ✅ Obnovit přístup
+            </button>
+            <button class="cancel-btn" onclick="closeRecoveryModal()" title="Zrušit a vrátit se">
+                ❌ Zrušit
+            </button>
+        </div>
         
-        await loadPasswords();
-        clearForm();
-        showFleetNotification('✅ Heslo úspěšně uloženo do hvězdné databáze!');
-    } catch (error) {
-        console.error("Chyba při ukládání hesla:", error);
-        showFleetNotification('❌ Chyba při ukládání hesla.', true);
-    }
-}
+        <div class="info-box danger" style="background: rgba(244, 67, 54, 0.1); border: 1px solid var(--danger-color); padding: 10px; border-radius: 8px; margin-top: 15px;">
+            <small style="color: var(--text-secondary); font-size: 0.85em;">
+                🔒 <strong>Nemáš backup key ani PIN?</strong> Bez nich bohužel nelze obnovit přístup k zašifrovaným heslům. Budeš muset vytvořit nový účet.
+            </small>
+        </div>
+    </div>
+</div>
 
-
-/**
- * Načtení hesel - OPTIMALIZOVÁNO s DocumentFragment a přidáno KOPÍROVÁNÍ
- */
-async function loadPasswords() {
-    clearTable();
-    
-    if (!masterKeyStore.exists()) {
-        console.warn('Master heslo není nastaveno. Nelze načíst hesla.');
-        return;
-    }
-
-    try {
-        const list = await getPasswordsWithCache();
+<!-- ========================================== -->
+<!-- 5️⃣ NOVÉ MASTER HESLO PO RECOVERY -->
+<!-- ========================================== -->
+<div id="newMasterPasswordModal" class="masterkey-modal-overlay hidden">
+    <div class="masterkey-modal-content">
+        <h2 style="color: var(--success-color); text-align: center; margin-bottom: 20px;">✅ Přístup obnoven!</h2>
         
-        const tbody = document.querySelector('#passwordTable tbody');
-        const emptyState = document.getElementById('emptyState');
-        const table = document.getElementById('passwordTable');
+        <div class="info-box success" style="background: rgba(76, 175, 80, 0.1); border: 1px solid var(--success-color); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <p style="margin: 0; color: var(--text-primary);">
+                <strong>🎉 Úspěch!</strong> Tvoje hesla byla úspěšně dešifrována.
+            </p>
+            <p style="margin: 10px 0 0 0; font-size: 0.9em; color: var(--text-secondary);">
+                Nyní vytvoř nové master heslo pro zabezpečení tvých dat.
+            </p>
+        </div>
         
-        if (!tbody || !emptyState || !table) {
-            console.error('Table elements not found');
-            return;
-        }
+        <!-- Nové master heslo -->
+        <div class="form-group">
+            <label for="recoveryNewMasterPassword">Nové master heslo:</label>
+            <div class="password-input-group">
+                <input type="password" id="recoveryNewMasterPassword" placeholder="Vytvoř nové silné heslo" title="Nové master heslo">
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('recoveryNewMasterPassword', this)" title="Přepnout viditelnost">🔒 Zobrazit</button>
+            </div>
+            <small style="color: var(--text-secondary); font-size: 0.85em;">Minimálně 12 znaků, mix písmen, číslic a symbolů</small>
+        </div>
         
-        if (list.length === 0) {
-            table.classList.add('hidden');
-            emptyState.classList.remove('hidden');
-        } else {
-            table.classList.remove('hidden');
-            emptyState.classList.add('hidden');
-            
-            // ⚡ OPTIMALIZACE: Použití DocumentFragment pro jeden reflow
-            const fragment = document.createDocumentFragment();
-            
-            list.forEach((e, i) => {
-                const row = document.createElement('tr');
-                
-                // Escapování HTML pro bezpečnost
-                const escapedService = String(e.service).replace(/[&<>"']/g, (char) => {
-                    const entities = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'};
-                    return entities[char];
-                });
-                const escapedUsername = String(e.username).replace(/[&<>"']/g, (char) => {
-                    const entities = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'};
-                    return entities[char];
-                });
-                const escapedPassword = String(e.password).replace(/[&<>"']/g, (char) => {
-                    const entities = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'};
-                    return entities[char];
-                });
-                
-                // ⚡ NOVÉ: Tlačítko kopírovat přidáno do akčního sloupce
-                row.innerHTML = `
-                    <td>${escapedService}</td>
-                    <td>${escapedUsername}</td>
-                    <td>${escapedPassword}</td>
-                    <td style="display: flex; gap: 8px; align-items: center;">
-                        <button class="edit-btn" onclick="openEditModal(${i})" title="Editovat heslo">✏️ Editovat</button>
-                        <button class="copy-btn" onclick="copyPassword(${i})" title="Zkopírovat heslo do schránky">📋 Kopírovat</button>
-                        <button class="delete-btn" onclick="deletePassword(${i})" title="Smazat toto heslo">🗑️ Smazat</button>
-                    </td>
-                `;
-                
-                fragment.appendChild(row);
-            });
-            
-            tbody.appendChild(fragment); // ✅ Jeden reflow místo stovek!
-        }
-    } catch (error) {
-        console.error("Chyba při načítání hesel:", error);
-        showFleetNotification('❌ Chyba při načítání hesel z cloudu.', true);
-    }
-}
-
-
-
-/**
- * ✅ FIX #1: Smazání hesla - AKTUALIZOVÁNO s auto-sync
- */
-async function deletePassword(idx) {
-    if (!masterKeyStore.exists()) {
-        showFleetNotification('❌ Master heslo není nastaveno. Přihlaste se prosím.', true);
-        return;
-    }
-    
-    try {
-        const list = await getPasswordsWithCache();
+        <!-- Potvrzení nového hesla -->
+        <div class="form-group">
+            <label for="recoveryConfirmNewMasterPassword">Potvrdit nové heslo:</label>
+            <div class="password-input-group">
+                <input type="password" id="recoveryConfirmNewMasterPassword" placeholder="Zadej nové heslo znovu" title="Potvrzení nového hesla">
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('recoveryConfirmNewMasterPassword', this)" title="Přepnout viditelnost">🔒 Zobrazit</button>
+            </div>
+        </div>
         
-        if (list.length === 0 || idx >= list.length) {
-            showFleetNotification('❌ Heslo nenalezeno.', true);
-            return;
-        }
+        <!-- Tlačítka -->
+        <div class="masterkey-modal-buttons">
+            <button class="confirm-ok" onclick="setNewMasterPasswordAfterRecovery()" title="Nastavit nové master heslo">
+                ✅ Nastavit nové heslo
+            </button>
+        </div>
         
-        const serviceToDelete = list[idx].service;
-        
-        if (confirm(`🗑️ Opravdu chcete smazat heslo pro službu "${serviceToDelete}"?`)) {
-            list.splice(idx, 1);
-            await savePasswordsWithCache(list);
-            
-            // ✅ FIX #1: Automaticky synchronizuj passwordsBackup
-            await syncPasswordsBackup(list);
-            
-            await loadPasswords();
-            showFleetNotification('✅ Heslo bylo úspěšně odstraněno z databáze!');
-        }
-    } catch (error) {
-        console.error("Chyba při mazání hesla:", error);
-        showFleetNotification('❌ Chyba při mazání hesla.', true);
-    }
-}
+        <div class="info-box warning" style="background: rgba(255, 152, 0, 0.1); border: 1px solid var(--warning-color); padding: 10px; border-radius: 8px; margin-top: 15px;">
+            <small style="color: var(--text-secondary); font-size: 0.85em;">
+                💡 <strong>Tip:</strong> Tentokrát si zapiš nové heslo na bezpečné místo!
+            </small>
+        </div>
+    </div>
+</div>
 
-// ========================================
-// 📤 EXPORT A IMPORT
-// ========================================
+     <footer id="appFooter" class="hidden">
+  &copy; <span id="currentYear"></span> Šifrovaný správce hesel | Více admirál jiřík & Admirál Claude.ai
+</footer>
 
-/**
- * ✅ OPRAVENO: Export do TXT - UTF-8 FIX (diakritika)
- */
-/**
- * ✅ OPRAVENO: Bezpečný Export do TXT (Pouze Base64)
- */
-async function exportToTxt() {
-    if (!masterKeyStore.exists()) {
-        showFleetNotification('❌ Nejsi přihlášen – masterKey chybí!', true);
-        return;
-    }
-    
-    try {
-        const list = await getPasswordsWithCache();
-        
-        if (list.length === 0) {
-            showFleetNotification('⚠️ Žádná data k exportu. Databáze je prázdná.', true);
-            return;
-        }
-        
-        // ⚡ NOVÉ: Zašifrujeme celý seznam do jednoho Base64 řetězce pomocí master klíče
-        const encryptedData = encryptData(list);
-        
-        const lines = [
-            '🚀 HVĚZDNÁ FLOTILA - BEZPEČNÝ EXPORT HESEL 🚀',
-            '═══════════════════════════════════════',
-            'Tento soubor obsahuje POUZE šifrovaná data (Base64).',
-            'Neobsahuje Master Key ani hesla v čitelném formátu.',
-            '═══════════════════════════════════════',
-            '',
-            encryptedData, // ZDE JE POUZE TEN BEZPEČNÝ ŘETĚZEC (U2FsdGVkX1...)
-            '',
-            '═══════════════════════════════════════',
-            'Export dokončen - Warpový pohon online! 🖖'
-        ];
-        
-        // Přidání UTF-8 BOM
-        const BOM = '\uFEFF'; 
-        const txt = BOM + lines.join('\n');
-        
-        // Explicitní UTF-8 encoding pomocí TextEncoder
-        const encoder = new TextEncoder(); 
-        const utf8Data = encoder.encode(txt);
-        
-        // Blob s explicitním charset
-        const blob = new Blob([utf8Data], { 
-            type: 'text/plain;charset=utf-8' 
-        });
-        
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `hesla_flotila_bezpecny_${new Date().toISOString().split('T')[0]}.txt`;
-        a.click();
-        
-        // Cleanup
-        setTimeout(() => {
-            URL.revokeObjectURL(a.href);
-        }, 100);
-        
-        showFleetNotification('✅ Bezpečný export dokončen! Soubor byl úspěšně stažen.');
-        
-        // Zavři dropdown menu po exportu
-        closeExportMenu();
-        
-    } catch (error) {
-        console.error("Chyba při exportu:", error);
-        showFleetNotification('❌ Chyba při exportu dat.', true);
-    }
-}
+</body>
 
-/**
- * ✅ NOVÉ: Zobrazení/skrytí dropdown menu
- */
-function toggleExportMenu() {
-    const menu = document.getElementById('exportDropdown');
-    if (menu) {
-        menu.classList.toggle('hidden');
-    }
-}
-
-/**
- * ✅ NOVÉ: Zavření dropdown menu
- */
-function closeExportMenu() {
-    const menu = document.getElementById('exportDropdown');
-    if (menu) {
-        menu.classList.add('hidden');
-    }
-}
-
-/**
- * ✅ NOVÉ: Zavření menu při kliku mimo něj
- */
-document.addEventListener('click', function(event) {
-    const menu = document.getElementById('exportDropdown');
-    const button = document.getElementById('exportMenuBtn');
-    
-    if (menu && button) {
-        // Pokud klik NENÍ na tlačítko ani menu, zavři menu
-        if (!button.contains(event.target) && !menu.contains(event.target)) {
-            menu.classList.add('hidden');
-        }
-    }
-});
-
-/**
- * Trigger import file picker
- */
-function triggerImport() {
-    const importFile = document.getElementById('importFile');
-    if (importFile) importFile.click();
-}
-
-/**
- * ✅ FIX #1: Import z TXT - AKTUALIZOVÁNO s auto-sync
- */
-/**
- * ✅ OPRAVENO: Bezpečný Import z TXT (Dešifrování Base64)
- */
-async function importFromTxt(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    if (!masterKeyStore.exists()) {
-        showFleetNotification('❌ Nejste přihlášeni! Pro import musíte být přihlášeni.', true);
-        return;
-    }
-
-    const reader = new FileReader();
-    
-    reader.onload = async function(e) {
-        try {
-            const content = e.target.result;
-            
-            // ⚡ NOVÉ: Hledáme Base64 řetězec od CryptoJS (začíná U2FsdGVkX1)
-            const base64Match = content.match(/(U2FsdGVkX1[A-Za-z0-9+/=]+)/);
-            
-            if (!base64Match) {
-                showFleetNotification('❌ Soubor neobsahuje platná šifrovaná data!', true);
-                return;
-            }
-            
-            const encryptedData = base64Match[1];
-            let importedPasswords = [];
-
-            // Pokus o dešifrování pomocí aktuálního master klíče
-            try {
-                importedPasswords = decryptData(encryptedData);
-                
-                // Kontrola, zda dešifrování proběhlo úspěšně a vrátilo pole
-                if (!importedPasswords || !Array.isArray(importedPasswords) || importedPasswords.length === 0) {
-                    throw new Error("Data jsou po dešifrování prázdná nebo neplatná.");
-                }
-            } catch (decryptError) {
-                console.error("Chyba dešifrování:", decryptError);
-                showFleetNotification('❌ Dešifrování selhalo! Váš aktuální Master Key pravděpodobně neodpovídá datům v souboru.', true);
-                return;
-            }
-
-            const action = confirm(`📥 Nalezeno a dešifrováno ${importedPasswords.length} hesel.\n\nKlikněte OK pro PŘIDÁNÍ k současným heslům\nKlikněte Cancel pro NAHRAZENÍ všech hesel.`);
-            
-            let finalPasswords = importedPasswords;
-            
-            if (action) {
-                const currentPasswords = await getPasswordsWithCache();
-                finalPasswords = [...currentPasswords, ...importedPasswords];
-            }
-            
-            await savePasswordsWithCache(finalPasswords);
-            
-            // Automaticky synchronizuj passwordsBackup
-            await syncPasswordsBackup(finalPasswords);
-            
-            await loadPasswords();
-            showFleetNotification(`✅ Import dokončen! ${importedPasswords.length} hesel bylo ${action ? 'přidáno' : 'nahrazeno'}.\n\nWarpový skok úspěšný! 🚀`);
-            
-        } catch (error) {
-            console.error("Chyba při importu:", error);
-            showFleetNotification('❌ Chyba při importu dat.', true);
-        }
-        
-        // Reset input
-        event.target.value = '';
-    };
-
-    reader.onerror = function() {
-        showFleetNotification('❌ Chyba při čtení souboru.', true);
-    };
-
-    reader.readAsText(file);
-}
-
-// ===========================
-
-
-// ========================================
-// 🕒 AUTOMATICKÉ NASTAVENÍ ROKU
-// ========================================
-const yearSpan = document.getElementById('currentYear');
-if (yearSpan) {
-    yearSpan.textContent = new Date().getFullYear();
-}
-
-// ========================================
-// 🚀 INICIALIZACE
-// ========================================
-
-// Inicializace se provede automaticky díky defer atributu v HTML
-// DOMContentLoaded listener není potřeba
-
-console.log('✅ Script.js loaded - Warpový pohon online! 🚀');
+</html>
