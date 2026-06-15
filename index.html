@@ -9,15 +9,16 @@
 <meta name="theme-color" content="#00ccff">
 <meta name="apple-mobile-web-app-capable" content="yes">
     <!-- Použij datum posledního commitu -->
-<link rel="stylesheet" href="style.css?v=20241215">
+<link rel="stylesheet" href="style.css?v=20260614">
 
     <!-- Přidání defer ke všem scriptům -->
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
 <script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 <script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 <script defer src="script.js"></script>
 <script defer src="firebase-logic.js"></script>
+<script defer src="generator-hesel.js"></script>    
     <!-- 🚀 PWA SERVICE WORKER REGISTRACE -->
 <script>
 if ('serviceWorker' in navigator) {
@@ -65,6 +66,9 @@ if ('serviceWorker' in navigator) {
             <div class="password-input-group">
                 <input type="password" id="password" placeholder="Zadejte heslo..." title="Zadejte heslo">
                 <button type="button" class="password-toggle" onclick="togglePasswordVisibility('password', this)" title="Přepnout viditelnost hesla">🔒 Zobrazit</button>
+                <button type="button" class="export-btn" onclick="openGeneratorModal()" title="Otevřít generátor hesel">
+    🎲 Generátor hesel
+</button>
             </div>
         </div>
         
@@ -81,15 +85,8 @@ if ('serviceWorker' in navigator) {
         
         <!-- Dropdown menu -->
         <div id="exportDropdown" class="export-dropdown hidden">
-            <button onclick="exportToTxt()" title="Export jako čitelný TXT soubor">
-                📄 TXT
-            </button>
-            <button onclick="exportToCsv()" title="Export pro Excel (CSV)">
-                📊 CSV
-            </button>
-            <button onclick="exportToJson()" title="Export jako JSON (pro programátory)">
-                📦 JSON
-            </button>
+            <button onclick="exportToTxt()">📄 Export do TXT (Bezpečný Base64)</button>
+             
         </div>
     </div>
     
