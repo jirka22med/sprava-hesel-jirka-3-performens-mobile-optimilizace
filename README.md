@@ -3,10 +3,11 @@
 [![Live Demo](https://img.shields.io/badge/Live-Demo-brightgreen?style=for-the-badge&logo=github)](https://jirka22med.github.io/sprava-hesel-jirka-3-performens-mobile-optimilizace/)
 [![GitHub](https://img.shields.io/badge/GitHub-Repo-blue?style=for-the-badge&logo=github)](https://github.com/jirka22med/sprava-hesel-jirka-3-performens-mobile-optimilizace)
 [![Firebase](https://img.shields.io/badge/Firebase-Firestore-orange?style=for-the-badge&logo=firebase)](https://firebase.google.com/)
-[![Version](https://img.shields.io/badge/Version-3.0-blueviolet?style=for-the-badge)](https://github.com/jirka22med/sprava-hesel-jirka-3-performens-mobile-optimilizace)
+[![Version](https://img.shields.io/badge/Version-4.0-blueviolet?style=for-the-badge)](https://github.com/jirka22med/sprava-hesel-jirka-3-performens-mobile-optimilizace)
+[![CryptoJS](https://img.shields.io/badge/CryptoJS-4.2.0-red?style=for-the-badge)](https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js)
 
 > **Moderní, bezpečný a optimalizovaný správce hesel s cloudovou synchronizací**  
-> Vytvořeno více admirálem Jiříkem ve spolupráci s admirálem Claude.AI
+> Vytvořeno více admirálem Jiříkem ve spolupráci s admirálem Claude.AI a Gemini.AI
 
 ---
 
@@ -14,153 +15,94 @@
 
 ### 🎯 K čemu aplikace slouží?
 
-Šifrovaný správce hesel "Hvězdná flotila" je **plně funkční webová aplikace** pro bezpečné ukládání a správu přihlašovacích údajů. Projekt vznikl z potřeby mít:
+Šifrovaný správce hesel „Hvězdná flotila" je **plně funkční webová aplikace** pro bezpečné ukládání a správu přihlašovacích údajů. Projekt vznikl z potřeby mít:
 
-- 🔒 **Bezpečné úložiště hesel** s end-to-end šifrováním (AES-256)
+- 🔒 **Bezpečné úložiště hesel** s AES šifrováním a Base64 exportem
 - ☁️ **Cloudovou synchronizaci** mezi zařízeními přes Firebase Firestore
+- 🎲 **Generátor ultra-silných hesel** s kryptograficky bezpečným RNG
 - 📱 **Mobilní optimalizaci** pro použití kdekoli
 - 🚀 **Rychlý a responzivní** interface bez kompromisů
 
 ### 🛠️ Vývojový proces
 
-Aplikace byla vytvořena ve **třech iteracích**:
+Aplikace byla vytvořena ve **čtyřech iteracích**:
 
-1. **Verze 1.0** - Základní funkcionalita (ukládání, šifrování)
-2. **Verze 2.0** - Firebase integrace + Google autentizace
-3. **Verze 3.0** - **Performance optimalizace + mobilní vyladění** (tento repozitář)
-
-Tento repozitář představuje **finální verzi** s komplexní performance optimalizací a mobilní podporou.
+1. **Verze 1.0** — Základní funkcionalita (ukládání, šifrování, LocalStorage)
+2. **Verze 2.0** — Firebase integrace + Google autentizace
+3. **Verze 3.0** — Performance optimalizace + mobilní vyladění
+4. **Verze 4.0** — Bezpečný export, kopírování hesel, generátor hesel (tento repozitář)
 
 ---
 
 ## ✨ Klíčové vlastnosti
 
 ### 🔐 Bezpečnost
-- ✅ **AES-256 šifrování** všech hesel pomocí CryptoJS
+- ✅ **AES šifrování** všech hesel pomocí CryptoJS 4.2.0
 - ✅ **Master heslo** pro přístup k datům
 - ✅ **Google autentizace** pro cloudovou synchronizaci
-- ✅ **End-to-end šifrování** - data šifrována před odesláním do cloudu
-- ✅ **XSS ochrana** - HTML escapování ve všech vstupech
+- ✅ **Šifrovaný export** — hesla v exportním souboru jsou zašifrována Base64, ne v plaintextu
+- ✅ **XSS ochrana** — HTML escapování ve všech vstupech
+- ✅ **Kryptograficky bezpečný generátor** — `window.crypto.getRandomValues()` místo `Math.random()`
+
+### 🎲 Generátor hesel (Nové ve v4.0)
+- ✅ **Samostatný modul** `generator-hesel.js` s vlastním modálním oknem
+- ✅ **Délka 12–64 znaků** nastavitelná sliderem
+- ✅ **4 typy znaků** — velká, malá, čísla, symboly (volitelně)
+- ✅ **Garantovaný výskyt** každého vybraného typu
+- ✅ **Fisher-Yates shuffle** pro nezkosené zamíchání znaků
+- ✅ **Kopírovat / Použít** — vygenerované heslo rovnou do formuláře
+
+### 📋 Správa hesel v tabulce (Nové ve v4.0)
+- ✅ **Kopírovat heslo** — tlačítko 📋 přímo vedle každého záznamu
+- ✅ **Smazat heslo** — tlačítko 🗑️ s potvrzením
 
 ### ☁️ Cloud & Synchronizace
 - ✅ **Firebase Firestore** pro ukládání dat
-- ✅ **Offline persistence** - data dostupná i bez připojení
+- ✅ **Offline persistence** — data dostupná i bez připojení
 - ✅ **Automatická synchronizace** mezi zařízeními
-- ✅ **Retry logika** - 95% úspěšnost i na nestabilní síti
-
-### 📱 Mobilní optimalizace
-- ✅ **Responzivní design** pro všechny velikosti obrazovek
-- ✅ **Touch-friendly** interface
-- ✅ **Optimalizované rendering** - <1s načítání na mobilech
-- ✅ **Redukované GPU efekty** na mobilních zařízeních
+- ✅ **Retry logika** — exponential backoff (1s → 2s → 4s), 95% úspěšnost i na nestabilní síti
 
 ### ⚡ Performance
-- ✅ **Firestore caching** - 90% rychlejší opakované operace
-- ✅ **DocumentFragment** pro table rendering - 95% rychlejší
-- ✅ **CSS custom properties** - 30% menší stylesheet
-- ✅ **Lazy loading** - efektivní využití zdrojů
+- ✅ **Firestore caching** — 5s TTL, 90% rychlejší opakované operace
+- ✅ **DocumentFragment** pro table rendering — 95% rychlejší
+- ✅ **CSS custom properties** — centralizované řízení celého designu
+- ✅ **PWA + Service Worker** — offline podpora a instalovatelnost
 
 ---
 
-## 📊 Performance optimalizace (Verze 3.0)
+## 📊 Performance metriky (v3.0 → zachováno ve v4.0)
 
-### 🎯 Před optimalizací vs. Po optimalizaci
-
-| Metrika | Před | Po | Zlepšení |
-|---------|------|-----|----------|
-| **Mobilní render** | 3-5s | <1s | **80% ⚡** |
+| Metrika | Před v3.0 | Po v3.0+ | Zlepšení |
+|---------|-----------|----------|----------|
+| **Mobilní render** | 3–5s | <1s | **80% ⚡** |
 | **Save password** | 800ms | 150ms | **81% ⚡** |
 | **Load 100 hesel** | 2500ms | 200ms | **92% ⚡** |
 | **Export 100 hesel** | 500ms | 100ms | **80% ⚡** |
-| **Import 100 hesel** | 1200ms | 400ms | **67% ⚡** |
-| **Firestore calls** | 3x/operace | 1x (cache) | **66% ⚡** |
-| **GPU zátěž (mobil)** | 60-80% | 20-30% | **60% ⚡** |
-| **CSS velikost** | 100% | ~70% | **30% ⚡** |
+| **Firestore calls** | 3×/operace | 1× (cache) | **66% ⚡** |
 | **Úspěšnost na nestabilní síti** | 60% | 95% | **+58% ⚡** |
-
-### 🔧 Provedené optimalizace
-
-#### **1. CSS Optimalizace (style.css)**
-- ✅ **CSS Custom Properties** - centralizované řízení barev, velikostí, animací
-- ✅ **Mobilní deaktivace efektů** - vypnutí hvězd, glow efektů, animací na mobilech
-- ✅ **Media queries optimalizace** - specifické nastavení pro každou velikost zařízení
-- ✅ **Redukce opakujícího se kódu** - z 850 řádků na efektivních 850 řádků s proměnnými
-
-```css
-/* Před */
-button { background: linear-gradient(135deg, #4CAF50, #45a049); }
-.export-btn { background: linear-gradient(135deg, #2196F3, #1976D2); }
-
-/* Po */
-:root { --gradient-success: linear-gradient(135deg, #4CAF50, #45a049); }
-button { background: var(--gradient-success); }
-```
-
-#### **2. JavaScript Optimalizace (script.js)**
-- ✅ **Firestore caching systém** - TTL 5s, eliminuje duplicitní dotazy
-- ✅ **DocumentFragment rendering** - tabulka se renderuje v jednom reflow místo stovek
-- ✅ **Toast notifikace** místo blokujících alert()
-- ✅ **Bezpečnější master key storage** - closure pattern místo globální proměnné
-- ✅ **Optimalizovaný export/import** - array.join() místo string concatenation
-
-```javascript
-// Před - 400 reflowů na 100 hesel
-list.forEach(e => {
-    const row = tbody.insertRow();
-    row.insertCell().textContent = e.service;
-});
-
-// Po - 1 reflow na 100 hesel
-const fragment = document.createDocumentFragment();
-list.forEach(e => {
-    const row = document.createElement('tr');
-    row.innerHTML = `<td>${e.service}</td>`;
-    fragment.appendChild(row);
-});
-tbody.appendChild(fragment);
-```
-
-#### **3. Firebase Optimalizace (firebase-logic.js)**
-- ✅ **Retry logika** - exponential backoff (1s → 2s → 4s) pro 3 pokusy
-- ✅ **Offline persistence** - Firestore cache pro offline přístup
-- ✅ **Helper funkce** - eliminace duplicitního kódu pro Firestore paths
-- ✅ **Environment-based logging** - vypnutelné dev logy v produkci
-- ✅ **Error boundaries** - kompletní error handling všude
-
-```javascript
-// Retry s exponential backoff
-async function firestoreOperationWithRetry(operation, maxRetries = 3) {
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-        try {
-            return await operation();
-        } catch (error) {
-            if (attempt === maxRetries - 1) throw error;
-            await new Promise(resolve => 
-                setTimeout(resolve, 1000 * Math.pow(2, attempt))
-            );
-        }
-    }
-}
-```
 
 ---
 
 ## 🚀 Technologie
 
 ### Frontend
-- **HTML5** - sémantická struktura
-- **CSS3** - custom properties, flexbox, grid, media queries
-- **Vanilla JavaScript** - žádné frameworky, čistý ES6+
+- **HTML5** — sémantická struktura
+- **CSS3** — custom properties, flexbox, grid, media queries
+- **Vanilla JavaScript** — žádné frameworky, čistý ES6+
 
 ### Backend & Databáze
-- **Firebase Authentication** - Google Sign-In
-- **Firebase Firestore** - NoSQL cloud databáze
-- **CryptoJS** - AES-256 šifrování
+- **Firebase Authentication** — Google Sign-In
+- **Firebase Firestore** — NoSQL cloud databáze
+- **CryptoJS 4.2.0** — AES šifrování
+
+### PWA
+- **manifest.json** — instalovatelnost na mobilu
+- **service-worker.js** — offline cache strategie
 
 ### Knihovny
 ```html
-<!-- Šifrování -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+<!-- Šifrování (aktualizováno na 4.2.0 v červnu 2026) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
 
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -175,10 +117,13 @@ async function firestoreOperationWithRetry(operation, maxRetries = 3) {
 ```
 sprava-hesel-jirka-3-performens-mobile-optimilizace/
 │
-├── index.html              # Hlavní HTML struktura
-├── style.css               # Optimalizované CSS s custom properties
-├── script.js               # Hlavní aplikační logika s caching
+├── index.html              # Hlavní HTML struktura + PWA meta
+├── style.css               # CSS s custom properties + copy-btn třída
+├── script.js               # Hlavní logika (CRUD, šifrování, export/import, copy)
 ├── firebase-logic.js       # Firebase operace s retry logikou
+├── generator-hesel.js      # 🆕 Generátor hesel (samostatný modul)
+├── manifest.json           # PWA manifest
+├── service-worker.js       # PWA offline cache
 └── README.md               # Tato dokumentace
 ```
 
@@ -187,8 +132,9 @@ sprava-hesel-jirka-3-performens-mobile-optimilizace/
 #### **index.html**
 - Sémantická HTML5 struktura
 - Login formulář s Google autentizací
-- Hlavní správcovský interface
+- Hlavní správcovský interface s tabulkou hesel
 - Master key modal pro šifrování
+- Modální okna pro backup, recovery, generátor
 - Toast notifikační systém
 
 #### **style.css** (850+ řádků)
@@ -196,50 +142,54 @@ sprava-hesel-jirka-3-performens-mobile-optimilizace/
 - 10+ media queries pro responzivitu
 - Mobilní optimalizace (deaktivace efektů)
 - Star Trek inspirovaný design
-- Animace a přechody
+- Třída `.copy-btn` pro tlačítka kopírování v tabulce
 
-#### **script.js** (330+ řádků)
+#### **script.js** (350+ řádků)
 - Správa hesel (CRUD operace)
-- Firestore caching systém
-- Šifrování/dešifrování (AES-256)
-- Export/import funkcionalita
+- Firestore caching systém (TTL 5s)
+- Šifrování/dešifrování (AES + CryptoJS)
+- Šifrovaný export do TXT / import ze TXT
+- `copyPassword()` — kopírování přímo z tabulky
 - Toast notifikace
 
 #### **firebase-logic.js** (270+ řádků)
 - Firebase inicializace
-- Firestore operace s retry
+- Firestore operace s retry (exponential backoff)
 - Offline persistence
-- Error handling
-- Debug utilities
+- Error handling + debug utilities
+
+#### **generator-hesel.js** 🆕 (180+ řádků)
+- Samostatný přípojný modul (načítán přes `<script defer>`)
+- Vlastní modální okno vkládané do DOM při načtení
+- `window.crypto.getRandomValues()` — kryptograficky bezpečné RNG
+- Fisher-Yates shuffle — statisticky správné zamíchání
+- Kopírovat do schránky + přímé vložení do formuláře
 
 ---
 
 ## 🎨 Design & UX
 
 ### 🌌 Vizuální styl
-- **Téma:** Star Trek / Hvězdná flotila
+- **Téma:** Star Trek / Hvězdná flotila — LCARS inspirace
 - **Barevná paleta:**
   - Primární: `#0066cc` (modrá)
   - Akcent: `#00ccff` (cyan)
   - Úspěch: `#4CAF50` (zelená)
   - Nebezpečí: `#f44336` (červená)
 - **Typografie:** Segoe UI (fallback: system fonts)
-- **Efekty:**
-  - Animované hvězdy na pozadí (vypnuté na mobilech)
-  - Glow efekty (redukovány na mobilech)
-  - Smooth transitions a hover stavy
+- **Efekty:** Animované hvězdy na pozadí (vypnuté na mobilech), glow efekty, smooth transitions
 
 ### 📱 Responzivní breakpointy
 
 | Zařízení | Šířka | Optimalizace |
-|----------|-------|--------------|
-| **Desktop velký** | 1920px+ | Plné efekty, velké fonty |
-| **Desktop** | 1200-1919px | Standardní zobrazení |
-| **Laptop** | 992-1199px | Mírně redukované spacing |
-| **Tablet landscape** | 768-991px | Vypnuté animace |
-| **Tablet portrait** | 576-767px | Zjednodušené stíny |
-| **Mobil velký** | 480-575px | Minimální efekty |
-| **Mobil** | 320-479px | Základní styling |
+|----------|-------|-------------|
+| **Desktop velký** | 1920px+ | Plné efekty |
+| **Desktop** | 1200–1919px | Standardní zobrazení |
+| **Laptop** | 992–1199px | Mírně redukované spacing |
+| **Tablet landscape** | 768–991px | Vypnuté animace |
+| **Tablet portrait** | 576–767px | Zjednodušené stíny |
+| **Mobil velký** | 480–575px | Minimální efekty |
+| **Mobil** | 320–479px | Základní styling |
 | **Mobil malý** | <320px | Ultra kompaktní |
 
 ---
@@ -283,32 +233,31 @@ const firebaseConfig = {
 };
 ```
 
-### 3️⃣ Spuštění lokálně
+### 3️⃣ Lokální server (doporučeno)
+
+Projekt obsahuje vlastní Python server s CORS podporou:
 
 ```bash
-# Jednoduchý HTTP server (Python 3)
-python -m http.server 8000
-
-# Nebo Node.js
-npx http-server
-
-# Nebo VS Code extension "Live Server"
+python server.py
+# 🚀 Warp jádro aktivní na: http://localhost:8081
 ```
 
-Otevři v prohlížeči: `http://localhost:8000`
+Nebo standardní alternativy:
+
+```bash
+python -m http.server 8000   # Python 3
+npx http-server              # Node.js
+# VS Code: Live Server extension
+```
 
 ### 4️⃣ Deploy na GitHub Pages
 
 ```bash
 git add .
-git commit -m "Initial commit"
+git commit -m "Update v4.0 - generator, secure export, copy button"
 git push origin main
-
-# Nastav GitHub Pages v repository Settings → Pages
-# Source: main branch / root
+# Nastav GitHub Pages v Settings → Pages → Source: main / root
 ```
-
-Live URL: `https://TVUJ_USERNAME.github.io/TVUJ_REPO/`
 
 ---
 
@@ -316,49 +265,51 @@ Live URL: `https://TVUJ_USERNAME.github.io/TVUJ_REPO/`
 
 ### 🔐 První přihlášení
 
-1. **Otevři aplikaci** → [Live Demo](https://jirka22med.github.io/sprava-hesel-jirka-3-performens-mobile-optimilizace/)
-2. **Přihlaš se přes Google** → Klikni na "🌐 Přihlásit přes Google"
-3. **Vytvoř master heslo** → Zadej silné heslo pro šifrování tvých dat
-4. **✅ Hotovo!** Můžeš začít přidávat hesla
+1. Otevři aplikaci → [Live Demo](https://jirka22med.github.io/sprava-hesel-jirka-3-performens-mobile-optimilizace/)
+2. Přihlaš se přes Google → „🌐 Přihlásit přes Google"
+3. Vytvoř master heslo → Zadej silné heslo pro šifrování dat
+4. ✅ Hotovo! Můžeš začít přidávat hesla
 
 ### 💾 Přidání hesla
 
-1. Vyplň **Služba** (např. "Gmail")
-2. Vyplň **Uživatelské jméno** (např. "admin@example.com")
-3. Vyplň **Heslo**
+1. Vyplň **Služba** (např. „Gmail")
+2. Vyplň **Uživatelské jméno**
+3. Vyplň **Heslo** — nebo klikni 🎲 a použij generátor
 4. Klikni **💾 ULOŽIT**
 5. Heslo se automaticky zašifruje a uloží do cloudu
 
-### 📥 Export/Import
+### 🎲 Generátor hesel (Nové ve v4.0)
+
+1. Klikni tlačítko 🎲 u pole pro heslo
+2. Nastavte délku (12–64 znaků) a typy znaků
+3. Klikni **Vygenerovat nové** pro nové heslo
+4. **📋 Kopírovat** — zkopíruje do schránky
+5. **✅ Použít** — vloží heslo přímo do formuláře a zavře okno
+
+### 📋 Kopírování hesla z tabulky (Nové ve v4.0)
+
+- V tabulce hesel klikni tlačítko 📋 vedle záznamu
+- Heslo se okamžitě zkopíruje do schránky
+
+### 📥 Export / Import
 
 #### Export hesel:
 ```
-1. Klikni "📤 EXPORT"
-2. Stáhne se TXT soubor s tvými hesly
-3. Soubor obsahuje master key pro import
+1. Klikni „📤 EXPORT"
+2. Stáhne se TXT soubor
+3. Hesla jsou v souboru šifrována (Base64) — ne v plaintextu ✅
+4. Master key v souboru slouží pro ověření při importu
 ```
 
 #### Import hesel:
 ```
-1. Klikni "📥 IMPORT"
-2. Vyber TXT soubor
-3. Potvrď přidání/nahrazení dat
+1. Klikni „📥 IMPORT"
+2. Vyber TXT soubor exportovaný z této aplikace
+3. Systém ověří master key a dešifruje data
+4. Potvrď přidání/nahrazení dat
 ```
 
-⚠️ **Bezpečnostní upozornění:** Export soubor obsahuje nešifrovaná hesla! Uchovávej jej bezpečně.
-
-### 🗑️ Smazání hesla
-
-1. V tabulce najdi heslo
-2. Klikni **🗑️ Smazat**
-3. Potvrď smazání
-
-### 🔄 Synchronizace mezi zařízeními
-
-Hesla se automaticky synchronizují, když:
-- ✅ Jsi přihlášen stejným Google účtem
-- ✅ Máš stejné master heslo
-- ✅ Máš připojení k internetu
+> ✅ **Bezpečnostní vylepšení v4.0:** Export soubor již neobsahuje hesla v plaintextu — jsou šifrována pomocí CryptoJS před zápisem do souboru.
 
 ---
 
@@ -369,66 +320,44 @@ Hesla se automaticky synchronizují, když:
 ```javascript
 // V konzoli prohlížeče
 await window.__firebaseDebug.testConnection()
-// ✅ Firestore connection OK Document exists
+// ✅ Firestore connection OK
 ```
 
 ### Offline test
 
 1. Načti aplikaci online
 2. Chrome DevTools → **Network → Offline**
-3. Obnovit stránku (F5)
-4. **Očekávaný výsledek:** Hesla stále viditelná z cache
+3. Obnov stránku (F5)
+4. **Očekáváno:** Hesla stále viditelná z cache
 
-### Mobilní test
+### Test generátoru
 
-1. Chrome DevTools → **Toggle device toolbar** (Ctrl+Shift+M)
-2. Vyber zařízení (iPhone, Galaxy, atd.)
-3. Zkontroluj responzivitu
-4. **Očekávaný výsledek:** Vše funkční a optimalizované
+1. Otevři generátor hesel (tlačítko 🎲)
+2. Nastav délku na 64 znaků, všechny typy zapnuté
+3. Vygeneruj heslo a ověř v konzoli:
 
-### Pomalá síť test
-
-1. Chrome DevTools → **Network → Slow 3G**
-2. Zkus uložit heslo
-3. Sleduj konzoli - uvidíš retry pokusy
-4. **Očekávaný výsledek:** Úspěch i na pomalé síti
+```javascript
+// Ruční test entropie v konzoli
+const pwd = "vygenerované_heslo_sem";
+const types = { upper: /[A-Z]/, lower: /[a-z]/, num: /[0-9]/, sym: /[^A-Za-z0-9]/ };
+Object.entries(types).forEach(([k,r]) => console.log(k, r.test(pwd) ? "✅" : "❌"));
+```
 
 ---
 
 ## 🐛 Debug režim
 
-### Aktivace debug režimu
-
-V `firebase-logic.js` (řádek 27):
+V `firebase-logic.js`:
 ```javascript
-const isDevelopment = true; // true = dev logy zapnuté
+const isDevelopment = false; // false = produkce (doporučeno)
+                             // true  = dev logy v konzoli zapnuté
 ```
 
-### Debug konzole
-
 ```javascript
-// Kontrola user ID
+// Debug konzole příkazy
 window.__firebaseDebug.getCurrentUserId()
-
-// Test Firestore připojení
 await window.__firebaseDebug.testConnection()
-
-// Získání Firebase instancí
 window.__firebaseDebug.getFirestoreInstance()
-window.__firebaseDebug.getAuthInstance()
-```
-
-### Console output
-
-Při `isDevelopment = true` uvidíš v konzoli:
-```
-✅ Script.js loaded - Warpový pohon online! 🚀
-🚀 Inicializuji Firebase...
-✅ Firestore offline persistence aktivována
-👤 Uživatel přihlášen: abc123...
-🔄 Load Passwords - pokus 1/3
-📥 Hesla načtena z Firestore
-✅ Load Passwords - úspěch
 ```
 
 ---
@@ -437,27 +366,28 @@ Při `isDevelopment = true` uvidíš v konzoli:
 
 ### 🛡️ Bezpečnostní opatření
 
-- ✅ **AES-256 šifrování** - vojenská úroveň šifrování
-- ✅ **End-to-end encryption** - data šifrována před odesláním
-- ✅ **Master heslo** - známé pouze tobě
-- ✅ **Google OAuth** - bezpečná autentizace
-- ✅ **Firestore security rules** - přístup jen k vlastním datům
-- ✅ **XSS ochrana** - HTML escapování
-- ✅ **No plaintext storage** - hesla nikdy neuložena v plain textu
+- ✅ **AES šifrování** — hesla nikdy uložena v plaintext
+- ✅ **Šifrovaný export** — Base64 blob, ne surová data (v4.0)
+- ✅ **Kryptograficky bezpečný generátor** — `crypto.getRandomValues()` (v4.0)
+- ✅ **Fisher-Yates shuffle** — nezkosené zamíchání znaků v generátoru (v4.0)
+- ✅ **Google OAuth** — bezpečná autentizace
+- ✅ **Firestore security rules** — přístup jen k vlastním datům
+- ✅ **XSS ochrana** — HTML escapování ve všech vstupech
+- ✅ **Master key closure pattern** — bezpečnější než globální proměnná
 
-### ⚠️ Co NENÍ bezpečné
+### ⚠️ Na co dát pozor
 
-- ❌ **Export soubor** - obsahuje nešifrovaná hesla
-- ❌ **Browser console** - dev logy můžou zobrazit citlivá data
-- ❌ **Sdílení master hesla** - nikdy nesdílej své master heslo
+- ⚠️ **Export soubor** — obsahuje master key pro ověření; uchovávej bezpečně
+- ⚠️ **Browser console** — při `isDevelopment = true` můžou být viditelné dev logy
+- ❌ **Nikdy nesdílej master heslo**
 
 ### 🔐 Best practices
 
 ```
-✅ Použij silné master heslo (12+ znaků, mix)
-✅ Neukládej export soubor na sdílené disky
-✅ Vypni debug režim v produkci
-✅ Pravidelně měň master heslo
+✅ Použij generátor hesel (64 znaků, všechny typy)
+✅ Vypni debug režim v produkci (isDevelopment = false)
+✅ Export soubor neukládej na sdílené disky
+✅ Pravidelně zálohuj export
 ✅ Používej 2FA na Google účtu
 ❌ Nesdílej přístup k účtu
 ❌ Neotevírej na veřejných počítačích
@@ -469,47 +399,39 @@ Při `isDevelopment = true` uvidíš v konzoli:
 
 ### 👥 Autoři
 
-- **Více admirál Jiřík** - Hlavní vývojář, koncept, design
-- **Admirál Claude.AI** - AI asistent, optimalizace, dokumentace
-
-### 🎯 Příspěvky
-
-Příspěvky jsou vítány! Pokud chceš přispět:
-
-1. **Fork** repozitář
-2. **Vytvoř branch** (`git checkout -b feature/AmazingFeature`)
-3. **Commit změny** (`git commit -m 'Add some AmazingFeature'`)
-4. **Push do branch** (`git push origin feature/AmazingFeature`)
-5. **Otevři Pull Request**
-
-### 🐛 Hlášení chyb
-
-Našel jsi bug? [Vytvoř issue](https://github.com/jirka22med/sprava-hesel-jirka-3-performens-mobile-optimilizace/issues) s:
-- Popisem problému
-- Kroky k reprodukci
-- Screenshot (pokud možno)
-- Browser a OS
+- **Více admirál Jiřík** — Hlavní vývojář, koncept, design, architektura
+- **Admirál Claude.AI** — Optimalizace, bezpečnostní audit, dokumentace, generátor RNG fix
+- **Gemini.AI** — Export/import přepis (šifrovaný Base64), generátor hesel základ
 
 ---
 
 ## 📜 Changelog
 
-### Version 3.0 (Prosinec 2024) - Performance & Mobile
-- ⚡ **CSS optimalizace** - custom properties, mobilní deaktivace efektů
-- ⚡ **JavaScript optimalizace** - caching, DocumentFragment, toast notifikace
-- ⚡ **Firebase optimalizace** - retry logika, offline persistence
-- 📱 **Mobilní optimalizace** - 80% rychlejší rendering na mobilech
-- 🛡️ **Bezpečnostní vylepšení** - XSS ochrana, bezpečnější storage
-- 📊 **Performance metriky** - 80-95% zlepšení ve všech oblastech
+### Version 4.0 (Červen 2026) — Generátor, bezpečný export, copy
+- 🎲 **Generátor hesel** — nový modul `generator-hesel.js` s vlastním modálním oknem
+- 🔒 **`crypto.getRandomValues()`** — kryptograficky bezpečné RNG v generátoru
+- 🔀 **Fisher-Yates shuffle** — nezkosené zamíchání v generátoru
+- 🔐 **Šifrovaný export** — hesla v TXT souboru jsou Base64 zašifrována (ne plaintext)
+- 📋 **Copy button** — kopírování hesla přímo z tabulky
+- 🗑️ **Odebrán CSV a JSON export** — zachován pouze univerzální TXT formát
+- ⬆️ **CryptoJS 4.1.1 → 4.2.0** — aktualizace šifrovací knihovny
+- 🎨 **CSS `copy-btn` třída** — přidán chybějící styl pro kopírovací tlačítka
 
-### Version 2.0 (Listopad 2024) - Cloud Sync
+### Version 3.0 (Prosinec 2024) — Performance & Mobile
+- ⚡ CSS optimalizace — custom properties, mobilní deaktivace efektů
+- ⚡ JavaScript optimalizace — caching, DocumentFragment, toast notifikace
+- ⚡ Firebase optimalizace — retry logika, offline persistence
+- 📱 Mobilní optimalizace — 80% rychlejší rendering
+- 🛡️ Bezpečnostní vylepšení — XSS ochrana, closure pattern
+
+### Version 2.0 (Listopad 2024) — Cloud Sync
 - ☁️ Firebase Firestore integrace
 - 🔐 Google autentizace
 - 🔄 Automatická synchronizace mezi zařízeními
 - 💾 Export/import funkcionalita
 
-### Version 1.0 (Říjen 2024) - MVP
-- 🔒 Základní šifrování (AES-256)
+### Version 1.0 (Říjen 2024) — MVP
+- 🔒 Základní šifrování (AES)
 - 💾 LocalStorage ukládání
 - 📝 CRUD operace pro hesla
 - 🎨 Star Trek inspirovaný design
@@ -523,7 +445,7 @@ Tento projekt je volně dostupný pod **MIT licencí**.
 ```
 MIT License
 
-Copyright (c) 2025 Více admirál Jiřík
+Copyright (c) 2026 Více admirál Jiřík
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -537,22 +459,18 @@ copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 ```
 
 ---
 
 ## 🌟 Poděkování
 
-- **CryptoJS** - Za skvělou šifrovací knihovnu
-- **Firebase** - Za cloudovou infrastrukturu
-- **Google Fonts** - Za Segoe UI fallback
-- **Star Trek** - Za inspiraci designu
-- **Claude.AI** - Za asistenci při optimalizaci
+- **CryptoJS** — Za skvělou šifrovací knihovnu
+- **Firebase** — Za cloudovou infrastrukturu
+- **Star Trek** — Za inspiraci designu a filozofii LCARS
+- **Claude.AI** — Za asistenci při optimalizaci a bezpečnostním auditu
+- **Gemini.AI** — Za pomoc s export/import přepisem a základem generátoru
 
 ---
 
@@ -564,9 +482,7 @@ SOFTWARE.
 
 ---
 
-## 🚀 Závěrečné slovo
-
-> *"Bezpečnost vašich hesel je naší prioritou. S Hvězdnou flotilou máte vaše přihlašovací údaje vždy po ruce, bezpečně zašifrované a synchronizované napříč všemi vašimi zařízeními."*
+> *„Bezpečnost vašich hesel je naší prioritou. S Hvězdnou flotilou máte vaše přihlašovací údaje vždy po ruce, bezpečně zašifrované a synchronizované napříč všemi vašimi zařízeními."*
 
 **Warpový pohon online! Vítejte na palubě!** 🖖✨
 
@@ -574,7 +490,7 @@ SOFTWARE.
 
 <div align="center">
 
-**Vytvořeno s ❤️ více admirálem Jiříkem ve spolupráci s admirálem Claude.AI**
+**Vytvořeno s ❤️ více admirálem Jiříkem ve spolupráci s admirálem Claude.AI a Gemini.AI**
 
 [![Star on GitHub](https://img.shields.io/github/stars/jirka22med/sprava-hesel-jirka-3-performens-mobile-optimilizace?style=social)](https://github.com/jirka22med/sprava-hesel-jirka-3-performens-mobile-optimilizace)
 
