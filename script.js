@@ -1207,6 +1207,59 @@ function triggerImport() {
 }
 
 /**
+ * 🆕 Vlastní modální okno pro volbu importu
+ * Nahrazuje confirm() — tři jasná tlačítka bez dvojznačnosti
+ * Injektuje se dynamicky do DOM (bez zásahu do index.html)
+ * Vrací Promise: 'add' | 'replace' | 'cancel'
+ */
+function showImportChoiceModal(count) {
+    return new Promise((resolve) => {
+        const modalId = 'importChoiceModal';
+
+        // Odstraň případný starý modal
+        const old = document.getElementById(modalId);
+        if (old) old.remove();
+
+        const tpl = `
+        <div id="${modalId}" class="masterkey-modal-overlay" style="z-index: 1003;">
+            <div class="masterkey-modal-content" style="max-width: 420px;">
+                <h2>📥 Import hesel</h2>
+                <p style="margin: 15px 0; color: var(--text-secondary, #aaa); line-height: 1.6;">
+                    Nalezeno a dešifrováno
+                    <strong style="color: var(--accent-color);">${count} hesel</strong>.<br><br>
+                    Co chceš udělat se stávajícími hesly v databázi?
+                </p>
+                <div class="masterkey-modal-buttons" style="display: flex; flex-direction: column; gap: 10px;">
+                    <button id="importAddBtn" class="confirm-ok"
+                        style="width:100%; margin:0; background: var(--gradient-success);">
+                        ➕ Přidat k stávajícím heslům
+                    </button>
+                    <button id="importReplaceBtn" class="confirm-ok"
+                        style="width:100%; margin:0; background: var(--gradient-primary);">
+                        🔄 Nahradit všechna hesla
+                    </button>
+                    <button id="importCancelBtn" class="cancel-btn"
+                        style="width:100%; margin:0; margin-top:5px;">
+                        ❌ Zrušit import
+                    </button>
+                </div>
+            </div>
+        </div>`;
+
+        document.body.insertAdjacentHTML('beforeend', tpl);
+
+        const cleanup = (result) => {
+            document.getElementById(modalId)?.remove();
+            resolve(result);
+        };
+
+        document.getElementById('importAddBtn').addEventListener('click', () => cleanup('add'));
+        document.getElementById('importReplaceBtn').addEventListener('click', () => cleanup('replace'));
+        document.getElementById('importCancelBtn').addEventListener('click', () => cleanup('cancel'));
+    });
+}
+
+/**
  * ✅ FIX #1: Import z TXT - AKTUALIZOVÁNO s auto-sync
  */
 /**
@@ -1252,14 +1305,24 @@ async function importFromTxt(event) {
                 return;
             }
 
-            const action = confirm(`📥 Nalezeno a dešifrováno ${importedPasswords.length} hesel.\n\nKlikněte OK pro PŘIDÁNÍ k současným heslům\nKlikněte Cancel pro NAHRAZENÍ všech hesel.`);
-            
-            let finalPasswords = importedPasswords;
-            
-            if (action) {
+            // 🆕 Vlastní modal místo confirm() — jasné 3 tlačítka bez dvojznačnosti
+            const action = await showImportChoiceModal(importedPasswords.length);
+
+            // Uživatel klikl Zrušit → opravdové zrušení, nic se nestane
+            if (action === 'cancel') {
+                showFleetNotification('⚠️ Import byl zrušen.');
+                event.target.value = '';
+                return;
+            }
+
+            let finalPasswords = importedPasswords; // výchozí = nahradit
+
+            if (action === 'add') {
+                // Přidat importovaná hesla ke stávajícím
                 const currentPasswords = await getPasswordsWithCache();
                 finalPasswords = [...currentPasswords, ...importedPasswords];
             }
+            // action === 'replace' → finalPasswords = importedPasswords (nahrazení)
             
             await savePasswordsWithCache(finalPasswords);
             
