@@ -268,6 +268,30 @@ async function getPasswordsWithCache(forceRefresh = false) {
     }
 }
 
+
+/**
+ * 📋 NOVÉ: Zkopírování hesla do schránky
+ */
+async function copyPassword(idx) {
+    try {
+        const list = await getPasswordsWithCache();
+        
+        if (list && list[idx]) {
+            const pwd = list[idx].password;
+            
+            // Zápis do schránky systému
+            await navigator.clipboard.writeText(pwd);
+            
+            // Oznámení pro uživatele
+            showFleetNotification('📋 Heslo zkopírováno do schránky!');
+        }
+    } catch (error) {
+        console.error("Chyba při kopírování:", error);
+        showFleetNotification('❌ Chyba při kopírování hesla. Zkontrolujte oprávnění prohlížeče.', true);
+    }
+}
+
+
 /**
  * Uložení hesel a invalidace cache
  */
@@ -955,8 +979,9 @@ async function savePassword() {
     }
 }
 
+
 /**
- * Načtení hesel - OPTIMALIZOVÁNO s DocumentFragment
+ * Načtení hesel - OPTIMALIZOVÁNO s DocumentFragment a přidáno KOPÍROVÁNÍ
  */
 async function loadPasswords() {
     clearTable();
@@ -1005,11 +1030,15 @@ async function loadPasswords() {
                     return entities[char];
                 });
                 
+                // ⚡ NOVÉ: Tlačítko kopírovat přidáno do akčního sloupce
                 row.innerHTML = `
                     <td>${escapedService}</td>
                     <td>${escapedUsername}</td>
                     <td>${escapedPassword}</td>
-                    <td><button class="delete-btn" onclick="deletePassword(${i})" title="Smazat toto heslo">🗑️ Smazat</button></td>
+                    <td style="display: flex; gap: 8px; align-items: center;">
+                        <button class="copy-btn" onclick="copyPassword(${i})" title="Zkopírovat heslo do schránky">📋 Kopírovat</button>
+                        <button class="delete-btn" onclick="deletePassword(${i})" title="Smazat toto heslo">🗑️ Smazat</button>
+                    </td>
                 `;
                 
                 fragment.appendChild(row);
@@ -1022,6 +1051,8 @@ async function loadPasswords() {
         showFleetNotification('❌ Chyba při načítání hesel z cloudu.', true);
     }
 }
+
+
 
 /**
  * ✅ FIX #1: Smazání hesla - AKTUALIZOVÁNO s auto-sync
@@ -1065,6 +1096,9 @@ async function deletePassword(idx) {
 /**
  * ✅ OPRAVENO: Export do TXT - UTF-8 FIX (diakritika)
  */
+/**
+ * ✅ OPRAVENO: Bezpečný Export do TXT (Pouze Base64)
+ */
 async function exportToTxt() {
     if (!masterKeyStore.exists()) {
         showFleetNotification('❌ Nejsi přihlášen – masterKey chybí!', true);
@@ -1079,45 +1113,38 @@ async function exportToTxt() {
             return;
         }
         
-        // ⚡ OPTIMALIZACE: Použití pole místo string concatenace
+        // ⚡ NOVÉ: Zašifrujeme celý seznam do jednoho Base64 řetězce pomocí master klíče
+        const encryptedData = encryptData(list);
+        
         const lines = [
-            '🚀 HVĚZDNÁ FLOTILA - EXPORT HESEL 🚀',
+            '🚀 HVĚZDNÁ FLOTILA - BEZPEČNÝ EXPORT HESEL 🚀',
+            '═══════════════════════════════════════',
+            'Tento soubor obsahuje POUZE šifrovaná data (Base64).',
+            'Neobsahuje Master Key ani hesla v čitelném formátu.',
             '═══════════════════════════════════════',
             '',
-            `Master key: ${masterKeyStore.get()}`,
+            encryptedData, // ZDE JE POUZE TEN BEZPEČNÝ ŘETĚZEC (U2FsdGVkX1...)
             '',
-            `Celkový počet hesel: ${list.length}`,
             '═══════════════════════════════════════',
-            ''
+            'Export dokončen - Warpový pohon online! 🖖'
         ];
         
-        list.forEach((e, index) => {
-            lines.push(`[${index + 1}] Služba: ${e.service}`);
-            lines.push(`    Uživatel: ${e.username}`);
-            lines.push(`    Heslo: ${e.password}`);
-            lines.push('---');
-            lines.push('');
-        });
-        
-        lines.push('═══════════════════════════════════════');
-        lines.push('Export dokončen - Warpový pohon online! 🖖');
-        
-        // ✅ FIX #1: Přidání UTF-8 BOM (Byte Order Mark)
-        const BOM = '\uFEFF'; // Říká editoru: "Tohle je UTF-8!"
+        // Přidání UTF-8 BOM
+        const BOM = '\uFEFF'; 
         const txt = BOM + lines.join('\n');
         
-        // ✅ FIX #2: Explicitní UTF-8 encoding pomocí TextEncoder
-        const encoder = new TextEncoder(); // Vždy UTF-8
+        // Explicitní UTF-8 encoding pomocí TextEncoder
+        const encoder = new TextEncoder(); 
         const utf8Data = encoder.encode(txt);
         
-        // ✅ FIX #3: Blob s explicitním charset
+        // Blob s explicitním charset
         const blob = new Blob([utf8Data], { 
             type: 'text/plain;charset=utf-8' 
         });
         
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `hesla_flotila_${new Date().toISOString().split('T')[0]}.txt`;
+        a.download = `hesla_flotila_bezpecny_${new Date().toISOString().split('T')[0]}.txt`;
         a.click();
         
         // Cleanup
@@ -1125,7 +1152,7 @@ async function exportToTxt() {
             URL.revokeObjectURL(a.href);
         }, 100);
         
-        showFleetNotification('✅ Export dokončen! Soubor byl úspěšně stažen.');
+        showFleetNotification('✅ Bezpečný export dokončen! Soubor byl úspěšně stažen.');
         
         // Zavři dropdown menu po exportu
         closeExportMenu();
@@ -1133,142 +1160,6 @@ async function exportToTxt() {
     } catch (error) {
         console.error("Chyba při exportu:", error);
         showFleetNotification('❌ Chyba při exportu dat.', true);
-    }
-}
-
-/**
- * ✅ NOVÉ: Export do CSV (Excel kompatibilní)
- */
-async function exportToCsv() {
-    if (!masterKeyStore.exists()) {
-        showFleetNotification('❌ Nejsi přihlášen – masterKey chybí!', true);
-        return;
-    }
-    
-    try {
-        const list = await getPasswordsWithCache();
-        
-        if (list.length === 0) {
-            showFleetNotification('⚠️ Žádná data k exportu. Databáze je prázdná.', true);
-            return;
-        }
-        
-        // ✅ UTF-8 BOM pro Excel (KRITICKÉ!)
-        const BOM = '\uFEFF';
-        
-        // CSV hlavička
-        const csvLines = [
-            'Služba;Uživatel;Heslo' // Středník pro Excel CZ
-        ];
-        
-        // Escape CSV hodnoty (ochrana proti injection)
-        const escapeCsv = (value) => {
-            const str = String(value);
-            // Pokud obsahuje středník, uvozovky nebo newline, dej to do uvozovek
-            if (str.includes(';') || str.includes('"') || str.includes('\n')) {
-                return '"' + str.replace(/"/g, '""') + '"';
-            }
-            return str;
-        };
-        
-        // Data
-        list.forEach(e => {
-            csvLines.push(
-                `${escapeCsv(e.service)};${escapeCsv(e.username)};${escapeCsv(e.password)}`
-            );
-        });
-        
-        const csv = BOM + csvLines.join('\n');
-        
-        // ✅ Explicitní UTF-8 encoding
-        const encoder = new TextEncoder();
-        const utf8Data = encoder.encode(csv);
-        
-        const blob = new Blob([utf8Data], { 
-            type: 'text/csv;charset=utf-8' 
-        });
-        
-        const date = new Date().toISOString().split('T')[0];
-        
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `hesla_flotila_${date}.csv`;
-        a.click();
-        
-        setTimeout(() => {
-            URL.revokeObjectURL(a.href);
-        }, 100);
-        
-        showFleetNotification('✅ CSV export dokončen! Otevřete v Excelu.');
-        
-        // Zavři dropdown menu po exportu
-        closeExportMenu();
-        
-    } catch (error) {
-        console.error("Chyba při CSV exportu:", error);
-        showFleetNotification('❌ Chyba při CSV exportu.', true);
-    }
-}
-
-/**
- * ✅ NOVÉ: Export do JSON (pro programátory)
- */
-async function exportToJson() {
-    if (!masterKeyStore.exists()) {
-        showFleetNotification('❌ Nejsi přihlášen – masterKey chybí!', true);
-        return;
-    }
-    
-    try {
-        const list = await getPasswordsWithCache();
-        
-        if (list.length === 0) {
-            showFleetNotification('⚠️ Žádná data k exportu. Databáze je prázdná.', true);
-            return;
-        }
-        
-        // JSON struktura
-        const exportData = {
-            version: '2.0',
-            exportDate: new Date().toISOString(),
-            masterKey: masterKeyStore.get(),
-            passwordCount: list.length,
-            passwords: list
-        };
-        
-        // JSON je vždy UTF-8
-        const json = JSON.stringify(exportData, null, 2);
-        
-        // ✅ UTF-8 BOM (pro jistotu)
-        const BOM = '\uFEFF';
-        const txt = BOM + json;
-        
-        const encoder = new TextEncoder();
-        const utf8Data = encoder.encode(txt);
-        
-        const blob = new Blob([utf8Data], { 
-            type: 'application/json;charset=utf-8' 
-        });
-        
-        const date = new Date().toISOString().split('T')[0];
-        
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `hesla_flotila_${date}.json`;
-        a.click();
-        
-        setTimeout(() => {
-            URL.revokeObjectURL(a.href);
-        }, 100);
-        
-        showFleetNotification('✅ JSON export dokončen!');
-        
-        // Zavři dropdown menu po exportu
-        closeExportMenu();
-        
-    } catch (error) {
-        console.error("Chyba při JSON exportu:", error);
-        showFleetNotification('❌ Chyba při JSON exportu.', true);
     }
 }
 
@@ -1318,6 +1209,9 @@ function triggerImport() {
 /**
  * ✅ FIX #1: Import z TXT - AKTUALIZOVÁNO s auto-sync
  */
+/**
+ * ✅ OPRAVENO: Bezpečný Import z TXT (Dešifrování Base64)
+ */
 async function importFromTxt(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -1333,49 +1227,32 @@ async function importFromTxt(event) {
         try {
             const content = e.target.result;
             
-            // Validace master key
-            const masterKeyMatch = content.match(/Master key:\s*(.+)/);
-            if (!masterKeyMatch) {
-                showFleetNotification('❌ Soubor neobsahuje platný master key!', true);
+            // ⚡ NOVÉ: Hledáme Base64 řetězec od CryptoJS (začíná U2FsdGVkX1)
+            const base64Match = content.match(/(U2FsdGVkX1[A-Za-z0-9+/=]+)/);
+            
+            if (!base64Match) {
+                showFleetNotification('❌ Soubor neobsahuje platná šifrovaná data!', true);
                 return;
             }
             
-            const fileMasterKey = masterKeyMatch[1].trim();
-            if (fileMasterKey !== masterKeyStore.get()) {
-                const confirmImport = confirm('⚠️ Master key v souboru se liší od vašeho současného klíče. Chcete pokračovat?\n\n(Doporučujeme zálohovat současná data před importem!)');
-                if (!confirmImport) return;
-            }
+            const encryptedData = base64Match[1];
+            let importedPasswords = [];
 
-            // ⚡ OPTIMALIZACE: Efektivnější parsing
-            const passwordBlocks = content.split('---');
-            const importedPasswords = [];
-            
-            // Regex patterns předkompilované
-            const serviceRegex = /Služba:\s*(.+)/;
-            const userRegex = /Uživatel:\s*(.+)/;
-            const passRegex = /Heslo:\s*(.+)/;
-            
-            for (let i = 0; i < passwordBlocks.length - 1; i++) {
-                const block = passwordBlocks[i];
-                const serviceMatch = block.match(serviceRegex);
-                const userMatch = block.match(userRegex);
-                const passMatch = block.match(passRegex);
+            // Pokus o dešifrování pomocí aktuálního master klíče
+            try {
+                importedPasswords = decryptData(encryptedData);
                 
-                if (serviceMatch && userMatch && passMatch) {
-                    importedPasswords.push({
-                        service: serviceMatch[1].trim(),
-                        username: userMatch[1].trim(),
-                        password: passMatch[1].trim()
-                    });
+                // Kontrola, zda dešifrování proběhlo úspěšně a vrátilo pole
+                if (!importedPasswords || !Array.isArray(importedPasswords) || importedPasswords.length === 0) {
+                    throw new Error("Data jsou po dešifrování prázdná nebo neplatná.");
                 }
-            }
-
-            if (importedPasswords.length === 0) {
-                showFleetNotification('❌ Ve souboru nebyla nalezena žádná platná hesla!', true);
+            } catch (decryptError) {
+                console.error("Chyba dešifrování:", decryptError);
+                showFleetNotification('❌ Dešifrování selhalo! Váš aktuální Master Key pravděpodobně neodpovídá datům v souboru.', true);
                 return;
             }
 
-            const action = confirm(`📥 Nalezeno ${importedPasswords.length} hesel.\n\nKlikněte OK pro PŘIDÁNÍ k současným heslům\nKlikněte Cancel pro NAHRAZENÍ všech hesel.`);
+            const action = confirm(`📥 Nalezeno a dešifrováno ${importedPasswords.length} hesel.\n\nKlikněte OK pro PŘIDÁNÍ k současným heslům\nKlikněte Cancel pro NAHRAZENÍ všech hesel.`);
             
             let finalPasswords = importedPasswords;
             
@@ -1386,7 +1263,7 @@ async function importFromTxt(event) {
             
             await savePasswordsWithCache(finalPasswords);
             
-            // ✅ FIX #1: Automaticky synchronizuj passwordsBackup
+            // Automaticky synchronizuj passwordsBackup
             await syncPasswordsBackup(finalPasswords);
             
             await loadPasswords();
@@ -1407,6 +1284,10 @@ async function importFromTxt(event) {
 
     reader.readAsText(file);
 }
+
+// ===========================
+
+
 // ========================================
 // 🕒 AUTOMATICKÉ NASTAVENÍ ROKU
 // ========================================
