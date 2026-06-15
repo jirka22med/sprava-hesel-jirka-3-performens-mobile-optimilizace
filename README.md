@@ -268,7 +268,29 @@ git push origin main
 1. Otevři aplikaci → [Live Demo](https://jirka22med.github.io/sprava-hesel-jirka-3-performens-mobile-optimilizace/)
 2. Přihlaš se přes Google → „🌐 Přihlásit přes Google"
 3. Vytvoř master heslo → Zadej silné heslo pro šifrování dat
-4. ✅ Hotovo! Můžeš začít přidávat hesla
+4. **Nastav backup kód** → viz níže ⚠️
+5. ✅ Hotovo! Můžeš začít přidávat hesla
+
+> ⚠️ **DŮLEŽITÉ — Backup kód je povinný krok!**  
+> Aplikace vyžaduje nastavení backup kódu při prvním přihlášení.  
+> Bez jeho nastavení **tě aplikace odmítne pustit dál** — platí pro nové i stávající uživatele.
+
+#### 🔑 Jak nastavit backup kód
+
+```
+1. Po vytvoření master hesla se zobrazí výzva k nastavení backup kódu
+2. Zadej backup kód (libovolný řetězec — ulož si ho bezpečně!)
+3. Zadej záložní PIN (čísla)
+4. Potvrď nastavení
+5. ✅ Teprve poté získáš přístup do aplikace
+```
+
+> 💡 **Proč backup kód existuje?**  
+> Pokud zapomeneš master heslo, backup kód + PIN jsou jediná cesta jak obnovit přístup ke svým heslům. Bez nich jsou data nenávratně ztracena.  
+> Backup kód a PIN jsou **jednorázově nastaveny** — změnit je lze pouze vytvořením nového účtu.
+
+> 🛡️ **Kde backup kód uchovávat?**  
+> Nikdy ne v digitální podobě na stejném zařízení. Ideálně vytisknutý a uložený fyzicky na bezpečném místě.
 
 ### 💾 Přidání hesla
 
