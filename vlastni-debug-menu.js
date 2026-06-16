@@ -272,7 +272,7 @@ const DebugAppStatus = {
             border-top: 3px solid #f0c040;
             border-radius: 4px;
             z-index: 9002;
-            display: flex;
+            display: none; /* <-- ZMĚNA ZDE: původně tu bylo display: flex; */
             flex-direction: column;
             font-family: 'Exo 2', sans-serif;
             box-shadow: 0 0 60px rgba(240,192,64,0.15), 0 0 120px rgba(13,58,110,0.3);
