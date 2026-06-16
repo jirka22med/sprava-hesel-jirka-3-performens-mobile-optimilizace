@@ -8,7 +8,7 @@
  */
 document.addEventListener('DOMContentLoaded', () => {
     const modalHTML = `
-    <div id="generatorModal" class="masterkey-modal-overlay hidden" style="z-index: 1002;">
+    <div id="generatorModal" class="masterkey-modal-overlay hidden" style="z-index: 1003;">
         <div class="masterkey-modal-content" style="max-width: 450px;">
             <h2>🎲 Generátor hesel</h2>
             
